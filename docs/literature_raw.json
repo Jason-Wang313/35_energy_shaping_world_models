@@ -1,0 +1,230 @@
+{
+  "crossref": [
+    {
+      "query": "world model robot dynamics control",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=world+model+robot+dynamics+control&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "robot world models control planning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=robot+world+models+control+planning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "energy shaping robot control passivity",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=energy+shaping+robot+control+passivity&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "passivity-based control robot learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=passivity-based+control+robot+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "Hamiltonian neural network robot dynamics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=Hamiltonian+neural+network+robot+dynamics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "neural state space models robotics dynamics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=neural+state+space+models+robotics+dynamics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "model-based reinforcement learning robotics dynamics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=model-based+reinforcement+learning+robotics+dynamics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "latent dynamics model robot manipulation",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=latent+dynamics+model+robot+manipulation&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "predictive control learned dynamics robot",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=predictive+control+learned+dynamics+robot&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "energy-based model robot dynamics learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=energy-based+model+robot+dynamics+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "port-Hamiltonian learning robot",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=port-Hamiltonian+learning+robot&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "structured dynamical systems learning robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=structured+dynamical+systems+learning+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "robot dynamics identification learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=robot+dynamics+identification+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "learning mechanical systems control robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=learning+mechanical+systems+control+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "adaptive control robot dynamics learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=adaptive+control+robot+dynamics+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "model predictive control learned dynamics robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=model+predictive+control+learned+dynamics+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "system identification robotics dynamics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=system+identification+robotics+dynamics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "learning latent dynamics physical systems",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=learning+latent+dynamics+physical+systems&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "neural differential equations control robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=neural+differential+equations+control+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "continuous-time world models robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=continuous-time+world+models+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "physics-informed dynamics learning robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=physics-informed+dynamics+learning+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "robot manipulation dynamics learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=robot+manipulation+dynamics+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "sim-to-real robot dynamics model learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=sim-to-real+robot+dynamics+model+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "embodied world models robot action",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=embodied+world+models+robot+action&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "predictive state representation robotics",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=predictive+state+representation+robotics&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "stochastic dynamics learning robot control",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=stochastic+dynamics+learning+robot+control&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "energy shaping control learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=energy+shaping+control+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    },
+    {
+      "query": "passivity robotics reinforcement learning",
+      "error": "400 Client Error: Bad Request for url: https://api.crossref.org/works?query=passivity+robotics+reinforcement+learning&rows=200&cursor=%2A&cursor-max=1000&mailto=codex%40example.com"
+    }
+  ],
+  "arxiv": [
+    {
+      "query": "world model robot dynamics control",
+      "count": 100
+    },
+    {
+      "query": "robot world models control planning",
+      "count": 100
+    },
+    {
+      "query": "energy shaping robot control passivity",
+      "count": 100
+    },
+    {
+      "query": "passivity-based control robot learning",
+      "count": 100
+    },
+    {
+      "query": "Hamiltonian neural network robot dynamics",
+      "count": 100
+    },
+    {
+      "query": "neural state space models robotics dynamics",
+      "count": 100
+    },
+    {
+      "query": "model-based reinforcement learning robotics dynamics",
+      "count": 100
+    },
+    {
+      "query": "latent dynamics model robot manipulation",
+      "count": 100
+    },
+    {
+      "query": "predictive control learned dynamics robot",
+      "count": 100
+    },
+    {
+      "query": "energy-based model robot dynamics learning",
+      "count": 100
+    },
+    {
+      "query": "port-Hamiltonian learning robot",
+      "count": 100
+    },
+    {
+      "query": "structured dynamical systems learning robotics",
+      "count": 100
+    },
+    {
+      "query": "robot dynamics identification learning",
+      "count": 100
+    },
+    {
+      "query": "learning mechanical systems control robotics",
+      "count": 100
+    },
+    {
+      "query": "adaptive control robot dynamics learning",
+      "count": 100
+    },
+    {
+      "query": "model predictive control learned dynamics robotics",
+      "count": 100
+    },
+    {
+      "query": "system identification robotics dynamics",
+      "count": 100
+    },
+    {
+      "query": "learning latent dynamics physical systems",
+      "count": 100
+    },
+    {
+      "query": "neural differential equations control robotics",
+      "count": 100
+    },
+    {
+      "query": "continuous-time world models robotics",
+      "count": 100
+    },
+    {
+      "query": "physics-informed dynamics learning robotics",
+      "count": 100
+    },
+    {
+      "query": "robot manipulation dynamics learning",
+      "count": 100
+    },
+    {
+      "query": "sim-to-real robot dynamics model learning",
+      "count": 100
+    },
+    {
+      "query": "embodied world models robot action",
+      "count": 100
+    },
+    {
+      "query": "predictive state representation robotics",
+      "count": 100
+    },
+    {
+      "query": "stochastic dynamics learning robot control",
+      "count": 100
+    },
+    {
+      "query": "energy shaping control learning",
+      "count": 100
+    },
+    {
+      "query": "passivity robotics reinforcement learning",
+      "count": 100
+    }
+  ]
+}
