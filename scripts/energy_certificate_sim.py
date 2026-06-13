@@ -1,6 +1,7 @@
 import csv
 import math
 import random
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,8 +23,8 @@ def clip(value, low, high):
     return max(low, min(high, value))
 
 
-def true_step(x, v, u):
-    acceleration = u - SPRING * x - DAMPING_TRUE * v - 0.04 * v * v * v
+def true_step(x, v, u, damping=DAMPING_TRUE):
+    acceleration = u - SPRING * x - damping * v - 0.04 * v * v * v
     return x + DT * v, v + DT * acceleration
 
 
@@ -66,7 +67,7 @@ def choose_action(method, x, v):
     return best_u
 
 
-def rollout(method, seed):
+def rollout(method, seed, true_damping=DAMPING_TRUE):
     rnd = random.Random(seed)
     x = -1.2 + rnd.uniform(-0.15, 0.15)
     v = rnd.uniform(-0.05, 0.05)
@@ -80,7 +81,7 @@ def rollout(method, seed):
     for _ in range(HORIZON_STEPS):
         u = choose_action(method, x, v)
         xp, vp = model_step(method, x, v, u)
-        xt, vt = true_step(x, v, u)
+        xt, vt = true_step(x, v, u, true_damping)
         squared_error += (xp - xt) ** 2 + (vp - vt) ** 2
         error_count += 2
         if energy(xp, vp) > ENERGY_CAP:
@@ -108,9 +109,9 @@ def rollout(method, seed):
     }
 
 
-def summarize(method):
-    runs = [rollout(method, seed) for seed in range(EPISODES)]
-    return {
+def summarize(method, true_damping=DAMPING_TRUE, include_damping=False):
+    runs = [rollout(method, seed, true_damping=true_damping) for seed in range(EPISODES)]
+    result = {
         "method": method,
         "one_step_rmse": math.sqrt(sum(r["mse"] for r in runs) / len(runs)),
         "model_energy_cap_violations": sum(r["model_energy_cap_violations"] for r in runs),
@@ -119,6 +120,56 @@ def summarize(method):
         "avg_return": sum(r["avg_return"] for r in runs) / len(runs),
         "final_goal_error": sum(r["final_goal_error"] for r in runs) / len(runs),
     }
+    if include_damping:
+        result = {"true_damping": true_damping, **result}
+    return result
+
+
+def write_damping_stress_table(rows):
+    body = []
+    for row in rows:
+        body.append(
+            f"{row['true_damping']:.2f} & {row['one_step_rmse']:.4f} & "
+            f"{row['model_energy_cap_violations']} & {row['closed_loop_unsafe_steps']} & "
+            f"{row['clean_success_rate']:.2f} \\\\"
+        )
+    table = (
+        "\\begin{table}[t]\n"
+        "\\centering\n"
+        "\\caption{V2 damping-mismatch stress for the certificate interface. The model keeps the nominal damping used by the certificate, while the true plant damping is reduced. At low true damping, model-cap violations remain near zero even as real unsafe steps appear.}\n"
+        "\\label{tab:damping-mismatch}\n"
+        "\\begin{tabular}{rrrrr}\n"
+        "\\toprule\n"
+        "True damping & RMSE & Model cap viol. & Unsafe steps & Clean success \\\\\n"
+        "\\midrule\n"
+        + "\n".join(body)
+        + "\n\\bottomrule\n"
+        "\\end{tabular}\n"
+        "\\end{table}\n"
+    )
+    (DOCS / "energy_damping_mismatch_stress_table.tex").write_text(table, encoding="utf-8")
+
+
+def run_damping_mismatch_stress():
+    rows = [summarize("certificate", true_damping=damping, include_damping=True) for damping in [0.18, 0.08, 0.02, 0.00]]
+    DOCS.mkdir(exist_ok=True)
+    fields = [
+        "method",
+        "true_damping",
+        "one_step_rmse",
+        "model_energy_cap_violations",
+        "closed_loop_unsafe_steps",
+        "clean_success_rate",
+        "avg_return",
+        "final_goal_error",
+    ]
+    with (DOCS / "energy_damping_mismatch_stress.csv").open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    write_damping_stress_table(rows)
+    for row in rows:
+        print(row)
 
 
 def main():
@@ -133,4 +184,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--stress-only" in sys.argv:
+        run_damping_mismatch_stress()
+    else:
+        main()

@@ -32,3 +32,9 @@ Robot dynamics learning with world-model style prediction and control.
 - Assumption 18: The model need not expose a certificate that the controller can use.
 - Assumption 19: Prediction horizons can be extended simply by more data.
 - Assumption 20: Generalization across contact/regime changes is mostly a scale problem.
+
+## V2 boundary
+
+Inside the claim: controller-facing energy admissibility under calibrated or conservative storage/dissipation models.
+
+Outside the claim: hardware safety guarantees when the true plant dissipates less energy than the certificate assumes.

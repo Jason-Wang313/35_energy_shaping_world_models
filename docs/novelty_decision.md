@@ -12,3 +12,5 @@ Rejected weaker variants:
 - Generic uncertainty estimation.
 - Standalone benchmark work.
 - RL framing.
+
+V2 boundary: proceed only as workshop-only / strong-revise. The damping-mismatch stress shows that the interface can be dangerously optimistic when dissipation is miscalibrated.

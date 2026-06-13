@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\caption{V2 damping-mismatch stress for the certificate interface. The model keeps the nominal damping used by the certificate, while the true plant damping is reduced. At low true damping, model-cap violations remain near zero even as real unsafe steps appear.}
+\label{tab:damping-mismatch}
+\begin{tabular}{rrrrr}
+\toprule
+True damping & RMSE & Model cap viol. & Unsafe steps & Clean success \\
+\midrule
+0.18 & 0.0009 & 0 & 0 & 1.00 \\
+0.08 & 0.0014 & 0 & 0 & 1.00 \\
+0.02 & 0.0026 & 0 & 125 & 0.23 \\
+0.00 & 0.0031 & 3 & 287 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
