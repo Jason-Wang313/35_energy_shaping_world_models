@@ -23,8 +23,13 @@
 \maketitle
 
 \begin{abstract}
-Robot world models are commonly judged by prediction loss or by whether they improve planning.  That criterion is incomplete when a learned model is placed inside a physical controller: two models with similar one-step error can imply very different energy behavior.  This paper proposes a small interface change.  A world model should expose an energy certificate, not only a predicted next state.  The certificate reports a storage function and an admissible action set relative to the controller's energy budget, so the planner can reject rollouts that would silently invent kinetic energy or cross a passivity-like bound.  A literature audit over 1007 retrieved papers shows the nearest hostile clusters: energy shaping and passivity-based control, port-Hamiltonian neural dynamics, and embodied world models for manipulation and planning.  The proposed contribution is deliberately narrow: it is not a new passivity theorem or a larger world model, but a controller-facing contract for learned prediction.  In a deterministic toy reaching task, a black-box model reaches the target but accumulates 2545 unsafe steps, and a Hamiltonian-style model still accumulates 1231 unsafe steps under the same energy cap.  The energy-certificate interface reaches with zero model cap violations, zero unsafe steps, and clean success on all 60 starts.  The result is not evidence of hardware readiness; it is a minimal runnable counterexample showing why prediction accuracy alone is the wrong interface for robot world models.
+Robot world models are commonly judged by prediction loss or by whether they improve planning.  That criterion is incomplete when a learned model is placed inside a physical controller: two models with similar one-step error can imply very different energy behavior.  This paper proposes a small interface change.  A world model should expose an energy certificate, not only a predicted next state.  The certificate reports a storage function and an admissible action set relative to the controller's energy budget, so the planner can reject rollouts that would silently invent kinetic energy or cross a passivity-like bound.  A literature audit over 1007 retrieved papers shows the nearest hostile clusters: energy shaping and passivity-based control, port-Hamiltonian neural dynamics, and embodied world models for manipulation and planning.  The proposed contribution is deliberately narrow: it is not a new passivity theorem or a larger world model, but a controller-facing contract for learned prediction.  In a deterministic toy reaching task, a black-box model reaches the target but accumulates 2545 unsafe steps, and a Hamiltonian-style model still accumulates 1231 unsafe steps under the same energy cap.  The energy-certificate interface reaches with zero model cap violations, zero unsafe steps, and clean success on all 60 starts under nominal damping.  A v2 damping-mismatch stress shows the boundary: when the true plant dissipates less energy than the certificate model assumes, the model can still report zero cap violations while the real rollout becomes unsafe.  The result is not evidence of hardware readiness; it is a minimal runnable counterexample showing why prediction accuracy alone is the wrong interface for robot world models.
 \end{abstract}
+
+\paragraph{V2 hardening note.}
+This version narrows the claim. Energy certificates are useful only when the
+storage function and dissipation model are calibrated conservatively enough for
+the deployed plant. They are not hardware safety guarantees by themselves.
 
 \section{Introduction}
 
@@ -78,6 +83,10 @@ More refined versions can replace $E_{\max}$ with supplied work, dissipated work
 
 The key architectural distinction is that the certificate is queried at decision time.  Penalizing energy during training can bias the model, but it does not tell the planner which actions are currently admissible.  A planner that only sees next-state predictions must infer safety indirectly from state coordinates.  A planner that sees $\admiss_E$ can reject energy-creating or energy-exceeding rollouts before they become controls.
 
+The certificate is only as trustworthy as its plant calibration.  If the model
+overestimates damping or underestimates supplied work, the admissible set can be
+too large even when the predicted storage remains below the cap.
+
 \section{Toy Experiment}
 
 The experiment is a one-dimensional reaching task with state $(q,\dot q)$, target $q^\star=1$, and true dynamics
@@ -103,6 +112,7 @@ The code is intentionally small and deterministic.  It is not a benchmark claim;
 
 \begin{table}[t]
 \centering
+\small
 \caption{Toy reaching task over 60 deterministic initializations. Energy violations are counted over all closed-loop control steps. The certificate interface optimizes progress while rejecting actions whose predicted storage exceeds the controller budget.}
 \label{tab:toy}
 \begin{tabular}{lrrrrr}
@@ -118,6 +128,19 @@ Energy-certificate interface & 0.0009 & 0 & 0 & 1.00 & 0.003 \\
 
 The result shows why RMSE is not the right contract.  The black-box model has a small one-step error and reaches the target closely, but the controller accumulates many unsafe steps because the model hides energy debt.  The Hamiltonian-style model is structurally cleaner, but the absence of a controller-facing admissibility query leaves it unable to regulate the cap under the tested controller.  The certificate interface is not merely a more accurate predictor; it changes the feasible action set exposed to the planner.  That is the mechanism.
 
+\subsection{V2 damping-mismatch stress}
+
+The hostile reviewer attack is calibration.  The nominal experiment gives the
+certificate model the correct damping scale.  We therefore reduce the true plant
+damping while leaving the certificate model unchanged.  Table~\ref{tab:damping-mismatch}
+shows that at true damping 0.02, the certificate still reports zero model-cap
+violations but the real rollout accumulates 125 unsafe steps and clean success
+falls to 0.23.  At zero damping, unsafe steps rise to 287.  This is the negative
+boundary: the interface needs conservative dissipation calibration or robust
+model uncertainty.
+
+\input{docs/energy_damping_mismatch_stress_table.tex}
+
 \section{Relation To Prior Work}
 
 \paragraph{World models and learned planning.}
@@ -131,7 +154,7 @@ Hamiltonian neural networks and port-Hamiltonian neural ordinary differential eq
 
 \section{Limitations}
 
-This paper is a recovery-grade artifact with a deliberately small simulation.  It does not include hardware, vision, contact, multi-body dynamics, or a learned neural model trained from data.  The certificate is a hand-specified storage cap.  The literature audit is broad but automated, so the closest-prior boundary should be treated as a working map rather than a complete survey.  The safety interpretation is local: zero violations in the toy task do not imply certifiable robot safety.  The useful claim is narrower and testable: a model interface that exposes energy admissibility gives the planner information that next-state prediction loss does not.
+This paper is a recovery-grade artifact with a deliberately small simulation.  It does not include hardware, vision, contact, multi-body dynamics, or a learned neural model trained from data.  The certificate is a hand-specified storage cap.  The literature audit is broad but automated, so the closest-prior boundary should be treated as a working map rather than a complete survey.  The safety interpretation is local: zero violations in the toy task do not imply certifiable robot safety.  The v2 stress shows that a certificate can be dangerously optimistic when true damping is lower than modeled.  The useful claim is narrower and testable: a model interface that exposes energy admissibility gives the planner information that next-state prediction loss does not, provided the certificate is calibrated conservatively.
 
 \section{Conclusion}
 
