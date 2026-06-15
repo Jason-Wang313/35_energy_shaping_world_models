@@ -1,0 +1,23 @@
+{
+  "status": "complete",
+  "expected_seed_rows": 161280,
+  "actual_seed_rows": 161280,
+  "expected_aggregate_rows": 1680,
+  "actual_aggregate_rows": 1680,
+  "represented_candidate_rollouts": 5109350400,
+  "figures": [
+    "calibration_stress_curve.pdf",
+    "representative_energy_trace.pdf",
+    "rmse_safety_scatter.pdf",
+    "safety_performance_tradeoff.pdf",
+    "violation_heatmap.pdf"
+  ],
+  "tables": [
+    "full_scale_boundary_failures.tex",
+    "full_scale_calibration_stress.tex",
+    "full_scale_family_summary.tex",
+    "full_scale_main_performance.tex",
+    "full_scale_rmse_safety.tex",
+    "full_scale_scale.tex"
+  ]
+}

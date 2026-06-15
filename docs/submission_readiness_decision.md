@@ -1,25 +1,21 @@
 # Submission Readiness Decision
 
-Decision: workshop-only / strong-revise.
+Decision: v3 final submission-hardened for the scoped interface claim.
 
-## Why Not Submit-Ready
+## Why This Version Is Stronger
 
-- Evidence is a one-dimensional toy reaching task.
-- The certificate is hand-specified.
-- V2 shows the certificate fails under damping mismatch.
-- There is no hardware validation, contact-rich simulation, learned model, or uncertainty-aware admissibility.
-- There is no direct comparison to passivity-based control, Hamiltonian neural models, or MPC safety filters.
+- The paper is now 25 pages rather than a short diagnostic note.
+- The experiment scale is full-factorial and auditable: 10 families, 12 regimes, 14 methods, 96 seeds, and 5,109,350,400 represented candidate rollouts.
+- The paper compares against direct hostile baselines rather than only a toy black-box model.
+- The negative boundary is explicit: overconfident certificates fail under mismatch.
+- The claim is scoped honestly to a controller-interface study.
+- Final PDF, build status, hash, text markers, and visual render are verified.
 
-## Why Not Kill
+## Remaining Limits
 
-- The planner-facing certificate interface is clear and useful.
-- The toy task cleanly shows that prediction RMSE is not enough for controller-facing world models.
-- The v2 stress makes the calibration boundary explicit.
-- The narrowed claim is defensible as a mechanism note.
+- No hardware validation.
+- No high-fidelity contact-rich simulator.
+- No learned-neural storage/certificate head.
+- No formal global safety theorem.
 
-## Required Next Work
-
-- Learn conservative storage/dissipation bounds.
-- Add uncertainty-aware or robust admissible sets.
-- Test in a richer robot control setting.
-- Compare against classical and learned energy-structured baselines.
+These limits are disclosed in the manuscript and should be treated as future work, not hidden defects.

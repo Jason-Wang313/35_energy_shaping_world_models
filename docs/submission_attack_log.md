@@ -1,15 +1,21 @@
 # Submission Attack Log
 
-Updated: 2026-06-13
+## Attack: Too Small
 
-## Attack Rounds
+Resolved in v3 with a full-factorial deterministic suite, 161,280 seed rows, 1,680 aggregate rows, and 25-page manuscript.
 
-1. Closest-prior attack: passivity, energy shaping, Hamiltonian neural networks, and port-Hamiltonian models already cover much of the physics structure. Response: keep novelty to a planner-facing admissibility interface.
-2. Evidence attack: the experiment is a toy one-dimensional reaching task. Response: mark the paper workshop-only / strong-revise.
-3. Calibration attack: the certificate assumes the correct storage and damping model. Response: add v2 damping-mismatch stress.
-4. Safety-claim attack: zero model cap violations may not imply zero real unsafe steps. Response: v2 shows this explicitly at low true damping.
-5. Artifact attack: v1 kept `main.pdf` locally and recorded stale Desktop-copy status. Response: build script copies only to Downloads and removes local PDF.
+## Attack: No Direct Baselines
 
-## V2 Outcome
+Resolved in v3 with black-box, calibrated black-box, energy-loss-only, Hamiltonian, port-Hamiltonian, passivity, MPC, certificate, overconfident, and oracle baselines.
 
-The paper remains workshop-only / strong-revise. The supported claim is a controller-facing energy-admissibility interface under conservative calibration. At true damping 0.02, the certificate reports 0 model cap violations but the real rollout has 125 unsafe steps and clean success 0.23.
+## Attack: Certificate Can Be Wrong
+
+Addressed, not eliminated. Overconfident certificates are included as a negative control and limitations emphasize calibration.
+
+## Attack: No Hardware
+
+Not resolved; explicitly scoped out. The paper is an interface study.
+
+## Attack: No Learned Neural Model
+
+Not resolved; explicitly scoped out. The paper proposes the interface and deterministic evidence, with neural learning listed as future work.

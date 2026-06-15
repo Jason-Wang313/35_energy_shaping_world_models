@@ -1,0 +1,352 @@
+{
+  "families": 10,
+  "regimes": 12,
+  "methods": 14,
+  "seeds": 96,
+  "horizon": 160,
+  "candidate_actions": 33,
+  "lookahead": 6,
+  "represented_candidate_rollouts": 5109350400,
+  "aggregate_rows": 1680,
+  "seed_rows": 161280,
+  "method_summary": [
+    {
+      "method": "aggressive_black_box",
+      "method_class": "open",
+      "one_step_rmse": 0.0056948350295065375,
+      "unsafe_steps_per_seed": 69.18443953746078,
+      "model_cap_violations_per_seed": 53.96615450588606,
+      "clean_success_rate": 0.012413194444444442,
+      "avg_return": -3.431408009920988,
+      "final_goal_error": 0.13418134980491903,
+      "admitted_action_fraction": 1.0,
+      "mean_energy_margin": -0.5960102126270294
+    },
+    {
+      "method": "calibrated_black_box",
+      "method_class": "open",
+      "one_step_rmse": 0.005909955688358708,
+      "unsafe_steps_per_seed": 36.59980852554121,
+      "model_cap_violations_per_seed": 27.083858308900485,
+      "clean_success_rate": 0.3668402777777778,
+      "avg_return": -2.2703845144155164,
+      "final_goal_error": 0.08451562513873825,
+      "admitted_action_fraction": 1.0,
+      "mean_energy_margin": -0.19908108525541202
+    },
+    {
+      "method": "energy_loss_only",
+      "method_class": "regularized",
+      "one_step_rmse": 0.006413402725907079,
+      "unsafe_steps_per_seed": 21.832818976799352,
+      "model_cap_violations_per_seed": 15.282973283759544,
+      "clean_success_rate": 0.6830729166666667,
+      "avg_return": -1.7766249223989719,
+      "final_goal_error": 0.06401947258955823,
+      "admitted_action_fraction": 1.0,
+      "mean_energy_margin": -0.005611189767993535
+    },
+    {
+      "method": "hamiltonian_predictor",
+      "method_class": "structured",
+      "one_step_rmse": 0.011048622056947273,
+      "unsafe_steps_per_seed": 16.814871126837634,
+      "model_cap_violations_per_seed": 10.42835377919489,
+      "clean_success_rate": 0.7551215277777777,
+      "avg_return": -1.7386490376945978,
+      "final_goal_error": 0.06421603334539965,
+      "admitted_action_fraction": 1.0,
+      "mean_energy_margin": 0.07023047278693201
+    },
+    {
+      "method": "port_hamiltonian_predictor",
+      "method_class": "structured",
+      "one_step_rmse": 0.007900353434734381,
+      "unsafe_steps_per_seed": 7.493444227208295,
+      "model_cap_violations_per_seed": 5.095542074501637,
+      "clean_success_rate": 0.9071180555555555,
+      "avg_return": -1.3104773198465656,
+      "final_goal_error": 0.04473632779861319,
+      "admitted_action_fraction": 1.0,
+      "mean_energy_margin": 0.20918255772791697
+    },
+    {
+      "method": "passivity_filter",
+      "method_class": "filter",
+      "one_step_rmse": 0.007513402725907081,
+      "unsafe_steps_per_seed": 1.644635546865539,
+      "model_cap_violations_per_seed": 0.8223177734327695,
+      "clean_success_rate": 0.9166666666666666,
+      "avg_return": -1.1373851979094247,
+      "final_goal_error": 0.03807956075867078,
+      "admitted_action_fraction": 0.7529709578125375,
+      "mean_energy_margin": 0.3537706445313447
+    },
+    {
+      "method": "mpc_safety_filter",
+      "method_class": "filter",
+      "one_step_rmse": 0.007107885734569452,
+      "unsafe_steps_per_seed": 0.9694285730228954,
+      "model_cap_violations_per_seed": 0.5428800008928216,
+      "clean_success_rate": 0.9957465277777778,
+      "avg_return": -0.9434428165604724,
+      "final_goal_error": 0.027482749846283676,
+      "admitted_action_fraction": 0.7711717857079083,
+      "mean_energy_margin": 0.38622271426977123
+    },
+    {
+      "method": "fixed_nominal_certificate",
+      "method_class": "certificate",
+      "one_step_rmse": 0.0069090165507988905,
+      "unsafe_steps_per_seed": 1.439836729271973,
+      "model_cap_violations_per_seed": 0.08757381955243566,
+      "clean_success_rate": 0.9657118055555554,
+      "avg_return": -0.9731894739806743,
+      "final_goal_error": 0.02874080062856123,
+      "admitted_action_fraction": 0.7701333143676343,
+      "mean_energy_margin": 0.3523538749173682
+    },
+    {
+      "method": "adaptive_calibrated_certificate",
+      "method_class": "certificate",
+      "one_step_rmse": 0.007305528907064546,
+      "unsafe_steps_per_seed": 0.00253066929646503,
+      "model_cap_violations_per_seed": 0.0008604275607981102,
+      "clean_success_rate": 1.0,
+      "avg_return": -0.8337130373708131,
+      "final_goal_error": 0.021815187158272985,
+      "admitted_action_fraction": 0.7822819830519807,
+      "mean_energy_margin": 0.43992058766167663
+    },
+    {
+      "method": "robust_interval_certificate",
+      "method_class": "certificate",
+      "one_step_rmse": 0.008512021075513075,
+      "unsafe_steps_per_seed": 0.0,
+      "model_cap_violations_per_seed": 0.0,
+      "clean_success_rate": 0.9776041666666668,
+      "avg_return": -0.9966975184172225,
+      "final_goal_error": 0.031331036598458,
+      "admitted_action_fraction": 0.7559943887152776,
+      "mean_energy_margin": 0.5077400164660448
+    },
+    {
+      "method": "uncertainty_margin_certificate",
+      "method_class": "certificate",
+      "one_step_rmse": 0.008109609043236685,
+      "unsafe_steps_per_seed": 0.0,
+      "model_cap_violations_per_seed": 0.0,
+      "clean_success_rate": 1.0,
+      "avg_return": -0.9424476545195372,
+      "final_goal_error": 0.02818529255252598,
+      "admitted_action_fraction": 0.7631494999999996,
+      "mean_energy_margin": 0.4857169999999999
+    },
+    {
+      "method": "residual_learned_certificate",
+      "method_class": "certificate",
+      "one_step_rmse": 0.006706821950390217,
+      "unsafe_steps_per_seed": 0.0,
+      "model_cap_violations_per_seed": 0.0,
+      "clean_success_rate": 1.0,
+      "avg_return": -0.8102850621464068,
+      "final_goal_error": 0.02054090563726355,
+      "admitted_action_fraction": 0.7840494999999995,
+      "mean_energy_margin": 0.45091699999999973
+    },
+    {
+      "method": "overconfident_certificate",
+      "method_class": "certificate",
+      "one_step_rmse": 0.005514570582107344,
+      "unsafe_steps_per_seed": 55.54503723855829,
+      "model_cap_violations_per_seed": 1.641115232400036,
+      "clean_success_rate": 0.13411458333333334,
+      "avg_return": -2.9238397951255757,
+      "final_goal_error": 0.1121204376569045,
+      "admitted_action_fraction": 0.5609375177124335,
+      "mean_energy_margin": -0.4257333723855828
+    },
+    {
+      "method": "oracle_limit_certificate",
+      "method_class": "oracle",
+      "one_step_rmse": 0.005406186386249859,
+      "unsafe_steps_per_seed": 0.0,
+      "model_cap_violations_per_seed": 0.0,
+      "clean_success_rate": 1.0,
+      "avg_return": -0.7743534731416983,
+      "final_goal_error": 0.01860007531263078,
+      "admitted_action_fraction": 0.7883915762152776,
+      "mean_energy_margin": 0.5627352343962616
+    }
+  ],
+  "adaptive_certificate": {
+    "method": "adaptive_calibrated_certificate",
+    "method_class": "certificate",
+    "one_step_rmse": 0.007305528907064546,
+    "unsafe_steps_per_seed": 0.00253066929646503,
+    "model_cap_violations_per_seed": 0.0008604275607981102,
+    "clean_success_rate": 1.0,
+    "avg_return": -0.8337130373708131,
+    "final_goal_error": 0.021815187158272985,
+    "admitted_action_fraction": 0.7822819830519807,
+    "mean_energy_margin": 0.43992058766167663
+  },
+  "robust_interval_certificate": {
+    "method": "robust_interval_certificate",
+    "method_class": "certificate",
+    "one_step_rmse": 0.008512021075513075,
+    "unsafe_steps_per_seed": 0.0,
+    "model_cap_violations_per_seed": 0.0,
+    "clean_success_rate": 0.9776041666666668,
+    "avg_return": -0.9966975184172225,
+    "final_goal_error": 0.031331036598458,
+    "admitted_action_fraction": 0.7559943887152776,
+    "mean_energy_margin": 0.5077400164660448
+  },
+  "uncertainty_margin_certificate": {
+    "method": "uncertainty_margin_certificate",
+    "method_class": "certificate",
+    "one_step_rmse": 0.008109609043236685,
+    "unsafe_steps_per_seed": 0.0,
+    "model_cap_violations_per_seed": 0.0,
+    "clean_success_rate": 1.0,
+    "avg_return": -0.9424476545195372,
+    "final_goal_error": 0.02818529255252598,
+    "admitted_action_fraction": 0.7631494999999996,
+    "mean_energy_margin": 0.4857169999999999
+  },
+  "mpc_safety_filter": {
+    "method": "mpc_safety_filter",
+    "method_class": "filter",
+    "one_step_rmse": 0.007107885734569452,
+    "unsafe_steps_per_seed": 0.9694285730228954,
+    "model_cap_violations_per_seed": 0.5428800008928216,
+    "clean_success_rate": 0.9957465277777778,
+    "avg_return": -0.9434428165604724,
+    "final_goal_error": 0.027482749846283676,
+    "admitted_action_fraction": 0.7711717857079083,
+    "mean_energy_margin": 0.38622271426977123
+  },
+  "oracle_limit_certificate": {
+    "method": "oracle_limit_certificate",
+    "method_class": "oracle",
+    "one_step_rmse": 0.005406186386249859,
+    "unsafe_steps_per_seed": 0.0,
+    "model_cap_violations_per_seed": 0.0,
+    "clean_success_rate": 1.0,
+    "avg_return": -0.7743534731416983,
+    "final_goal_error": 0.01860007531263078,
+    "admitted_action_fraction": 0.7883915762152776,
+    "mean_energy_margin": 0.5627352343962616
+  },
+  "aggressive_black_box": {
+    "method": "aggressive_black_box",
+    "method_class": "open",
+    "one_step_rmse": 0.0056948350295065375,
+    "unsafe_steps_per_seed": 69.18443953746078,
+    "model_cap_violations_per_seed": 53.96615450588606,
+    "clean_success_rate": 0.012413194444444442,
+    "avg_return": -3.431408009920988,
+    "final_goal_error": 0.13418134980491903,
+    "admitted_action_fraction": 1.0,
+    "mean_energy_margin": -0.5960102126270294
+  },
+  "hamiltonian_predictor": {
+    "method": "hamiltonian_predictor",
+    "method_class": "structured",
+    "one_step_rmse": 0.011048622056947273,
+    "unsafe_steps_per_seed": 16.814871126837634,
+    "model_cap_violations_per_seed": 10.42835377919489,
+    "clean_success_rate": 0.7551215277777777,
+    "avg_return": -1.7386490376945978,
+    "final_goal_error": 0.06421603334539965,
+    "admitted_action_fraction": 1.0,
+    "mean_energy_margin": 0.07023047278693201
+  },
+  "overconfident_certificate": {
+    "method": "overconfident_certificate",
+    "method_class": "certificate",
+    "one_step_rmse": 0.005514570582107344,
+    "unsafe_steps_per_seed": 55.54503723855829,
+    "model_cap_violations_per_seed": 1.641115232400036,
+    "clean_success_rate": 0.13411458333333334,
+    "avg_return": -2.9238397951255757,
+    "final_goal_error": 0.1121204376569045,
+    "admitted_action_fraction": 0.5609375177124335,
+    "mean_energy_margin": -0.4257333723855828
+  },
+  "rmse_unsafe_correlation": -0.032461597258615416,
+  "return_unsafe_correlation": -0.9905204059538426,
+  "family_winners": [
+    {
+      "family": "actuator_saturation",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7738348931934563,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "coupled_two_mode",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7751025277138978,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "cubic_drag",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7725808674099716,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "high_damping_environment",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7743464950300137,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "low_damping_payload",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7738348931934563,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "nominal_spring_damper",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7729383216029969,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "slope_biased_potential",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.773407836712979,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "soft_wall_contact",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7804040645732718,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "unilateral_stop",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7728435935942634,
+      "clean_success_rate": 1.0
+    },
+    {
+      "family": "variable_stiffness",
+      "winner": "oracle_limit_certificate",
+      "unsafe_steps_per_seed": 0.0,
+      "avg_return": -0.7742412383926768,
+      "clean_success_rate": 1.0
+    }
+  ]
+}

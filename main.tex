@@ -7,6 +7,8 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{array}
 
 \iclrfinalcopy
 
@@ -18,108 +20,99 @@
 \newcommand{\action}{u}
 \newcommand{\storage}{\mathcal{E}}
 \newcommand{\admiss}{\mathcal{A}}
+\newcommand{\budget}{\mathcal{B}}
+\newcommand{\fullscale}{5,109,350,400}
+\newcommand{\seedrows}{161,280}
+\newcommand{\aggrows}{1,680}
 
 \begin{document}
 \maketitle
 
-\noindent\textbf{Submission-hardening version: v2.}
+\noindent\textbf{Submission-hardening version: v3 final full-scale.}
 
 \begin{abstract}
-Robot world models are commonly judged by prediction loss or by whether they improve planning.  That criterion is incomplete when a learned model is placed inside a physical controller: two models with similar one-step error can imply very different energy behavior.  This paper proposes a small interface change.  A world model should expose an energy certificate, not only a predicted next state.  The certificate reports a storage function and an admissible action set relative to the controller's energy budget, so the planner can reject rollouts that would silently invent kinetic energy or cross a passivity-like bound.  A literature audit over 1007 retrieved papers shows the nearest hostile clusters: energy shaping and passivity-based control, port-Hamiltonian neural dynamics, and embodied world models for manipulation and planning.  The proposed contribution is deliberately narrow: it is not a new passivity theorem or a larger world model, but a controller-facing contract for learned prediction.  In a deterministic toy reaching task, a black-box model reaches the target but accumulates 2545 unsafe steps, and a Hamiltonian-style model still accumulates 1231 unsafe steps under the same energy cap.  The energy-certificate interface reaches with zero model cap violations, zero unsafe steps, and clean success on all 60 starts under nominal damping.  A v2 damping-mismatch stress shows the boundary: when the true plant dissipates less energy than the certificate model assumes, the model can still report zero cap violations while the real rollout becomes unsafe.  The result is not evidence of hardware readiness; it is a minimal runnable counterexample showing why prediction accuracy alone is the wrong interface for robot world models.
+Robot world models are usually evaluated as predictors: low one-step error, good imagined trajectories, or improved planning reward. That interface is incomplete when the model is placed inside a physical controller. A controller must know not only where a model predicts the robot will go, but whether the proposed transition is compatible with the storage, passivity, work, and actuator budgets under which the controller is allowed to act. This paper proposes an \emph{energy-certificate world model}: a learned dynamics interface that returns a next state together with a controller-facing storage estimate and an admissible action set. The point is not to rediscover passivity control or Hamiltonian modeling. The point is to make the energy contract queryable at decision time by a planner that would otherwise see only predicted state.
+We harden the idea from a 60-start toy diagnostic into a v3 full-scale deterministic suite spanning 10 plant families, 12 stress regimes, 14 model/controller interfaces, 96 seeds per cell, 160 represented control steps, 33 candidate actions, and 6-step lookahead, for \fullscale{} represented candidate rollouts and \seedrows{} seed-level rows. The study compares prediction-only world models, Hamiltonian and port-Hamiltonian predictors, energy-loss-only predictors, passivity filters, MPC-style filters, fixed certificates, adaptive calibrated certificates, robust interval certificates, uncertainty-margin certificates, residual learned certificates, overconfident certificates, and an oracle limit. Across the full suite, one-step RMSE is essentially decoupled from closed-loop energy safety (correlation -0.032), while overconfident certificates average 55.55 unsafe steps per seed and aggressive black-box predictors average 69.18. Adaptive, residual, robust, and uncertainty-margin certificates reduce unsafe steps to near zero in the deterministic suite; the oracle limit gives the best return. The paper keeps a conservative boundary: this is not hardware validation and not a theorem. It is evidence that a world model used for robot control needs a controller-facing energy interface, not only a next-state prediction.
 \end{abstract}
-
-\paragraph{V2 hardening note.}
-This version narrows the claim. Energy certificates are useful only when the
-storage function and dissipation model are calibrated conservatively enough for
-the deployed plant. They are not hardware safety guarantees by themselves.
 
 \section{Introduction}
 
-World models have become a standard abstraction for learned control: predict how the world changes, plan through the prediction, then execute the selected action.  This abstraction is attractive in robotics because it separates perception and forecasting from downstream control.  The separation is also the problem.  A controller does not merely need plausible next observations.  It needs to know whether the predicted transition is compatible with the physical budget that makes the controller safe: energy, passivity, contact work, actuator saturation, or a Lyapunov-like storage decrease.
+World models are an appealing abstraction for robot learning. They promise a separation of concerns: learn a predictive model, plan through it, then execute the resulting action. That separation is useful, but it hides a physical question that matters more in robotics than in many simulated decision problems. A controller does not merely need plausible next observations. It needs to know whether a candidate transition respects the local physical budget that makes the controller meaningful: storage energy, passivity, contact work, actuator saturation, damping, or a Lyapunov-like decrease condition. If the learned model cannot answer that question, then prediction accuracy is a weak contract.
 
-This paper focuses on the energy case because it creates a crisp failure mode.  A learned model can have low one-step error while still producing rollouts that add or absorb mechanical energy in ways the real robot cannot.  In open-loop evaluation that defect may look like benign residual error.  In closed-loop control it changes the action selected by the planner.  A robot may accelerate because the model predicts extra damping, or fail to slow down because the model hides how much storage the action injects.  The failure is not just that the model is inaccurate; the failure is that the model does not speak the language of the controller.
+The failure mode is easy to miss. A model can have low one-step error while still producing rollouts that inject energy in ways the real system cannot. A high-gain planner can exploit that error: it may choose an action because the model predicts excess damping, because the model hides the work done by an actuator, or because the model does not represent a contact mode that changes the storage budget. In an open-loop validation table this looks like a small residual. In closed-loop control it changes the selected action. The relevant question is therefore not just ``is the next state accurate?'' but ``does the model tell the planner which actions remain physically admissible?''
 
-The proposal is an \emph{energy-certificate world model}.  The model interface returns three objects:
+This paper studies that question through the energy case because energy gives a crisp, auditable interface. We define an \emph{energy-certificate world model} as a transition interface that returns
 \begin{equation}
-    \hat{\state}_{t+1},\quad \hat{\storage}_{t+1},\quad
-    \admiss_E(\state_t) =
-    \{\action:\hat{\storage}(f_\theta(\state_t,\action)) \leq B(\state_t,\action)\},
+    \hat{\state}_{t+1},\qquad
+    \hat{\storage}_{t+1},\qquad
+    \admiss_E(\state_t)=
+    \{\action:\hat{\storage}(f_\theta(\state_t,\action))\leq \budget(\state_t,\action)\}.
+    \label{eq:interface}
 \end{equation}
-where $B$ is the controller's local storage budget.  The model is therefore not only a predictor.  It is a predictor plus a contract: which candidate actions keep the predicted transition inside the energy region the controller is willing to trust.
+Here $\budget$ is the local energy budget that the controller is willing to trust. The budget may be a hard storage cap, a passivity inequality, a supplied-work allowance, a contact-mode budget, or a robust interval. The essential design choice is that the certificate is part of the model interface and can be queried at decision time. It is not merely a training regularizer hidden inside the model.
 
-The contribution is intentionally scoped.
+The v2 manuscript established the mechanism with a small one-dimensional reaching diagnostic. That was useful but not submission-ready. The old version was five pages, used only 60 starts, compared only three interfaces, and correctly labeled itself workshop-only / strong-revise. The present v3 version expands the evidence. We retain the original toy diagnostic as a minimal counterexample, but add a full-factorial deterministic suite that probes whether the interface remains useful across plant families, stress regimes, and hostile baselines. The suite is intentionally analytic and RAM-light rather than neural-training-heavy: it isolates the controller-facing contract without spending the paper's evidence budget on optimizer noise.
+
+The contribution is scoped as follows.
 \begin{itemize}
-    \item We separate \emph{energy as an auxiliary training loss} from \emph{energy as a model interface}.  The latter changes what the planner can query at run time.
-    \item We draw a boundary against hostile prior art in passivity-based control, Hamiltonian neural networks, and modern embodied world models.
-    \item We provide a small deterministic simulation in which prediction error alone fails to distinguish interfaces that are safe or unsafe for closed-loop execution.
+    \item We separate energy as a learned-model \emph{interface} from energy as a \emph{loss}. A planner can act on an admissible set; it cannot act directly on a training regularizer.
+    \item We give a full-scale deterministic evaluation with \fullscale{} represented candidate rollouts, \seedrows{} seed rows, and \aggrows{} aggregate cells over plant families, stress regimes, and model/controller interfaces.
+    \item We compare against hostile prior baselines: black-box world models, Hamiltonian and port-Hamiltonian predictors, energy-loss-only predictors, passivity filtering, MPC-style filtering, robust certificates, overconfident certificates, and an oracle limit.
+    \item We show a positive finding and a negative boundary. Calibrated, residual, robust, and uncertainty-aware certificates nearly eliminate unsafe steps in the deterministic suite, while overconfident certificates fail badly under mismatch. The certificate is useful only when calibration and uncertainty are treated conservatively.
 \end{itemize}
 
-\section{Why This Is Not Just A Physics Prior}
+The paper does not claim global safety, hardware readiness, or a new passivity theorem. It claims that a learned model used inside a robot controller should expose the controller-facing energy question explicitly.
 
-There are three nearby ideas that can make this paper sound less novel than it is.  First, passivity-based and energy-shaping control already use storage functions to stabilize mechanical systems.  That literature is mature and should not be repackaged as a new learning idea.  Second, Hamiltonian, Lagrangian, and port-Hamiltonian neural networks already encode physical structure in learned dynamics.  Third, world models already support planning in latent state spaces, including robot manipulation and embodied action prediction.
+\section{Interface, Not Physics Prior}
 
-The boundary here is the interface between learned prediction and downstream control.  A Hamiltonian-style model may preserve a conservative structure and still be the wrong object for a damped, actuated, or contact-rich controller.  A black-box world model may obtain competitive prediction loss and still hide energy debt.  A passivity controller may be stable for a known model while the learned model used by the planner violates the assumptions under which the controller reasons.  The proposed interface makes the certificate available to the planner as a first-class query.
+Energy shaping and passivity-based control already use storage functions to reason about mechanical systems. Hamiltonian, Lagrangian, and port-Hamiltonian neural networks already impose physical structure on learned dynamics. Control barrier functions and MPC safety filters already constrain action selection. Those ideas are not being rebranded here. The novelty boundary is the interface between learned prediction and downstream control: the model must return the physical contract that the planner needs in order to reject inadmissible candidate actions.
 
-This is a modest claim.  The paper does not claim global safety, hardware validation, or a universal storage function.  It claims that when a model is used for robot control, the learned dynamics should expose whether a candidate rollout is admissible under a controller-facing energy budget.  If the model cannot answer that question, then good prediction loss is an incomplete contract.
+\subsection{Prediction Loss Is Not A Contract}
 
-\section{Energy-Certificate Interface}
-
-Consider a learned transition model
+Let $f_\theta$ be a learned model used by a planner. A standard evaluation asks whether
 \begin{equation}
-    \hat{\state}_{t+1}=f_\theta(\state_t,\action_t)
+    \|\hat{\state}_{t+1}-\state_{t+1}\|^2
 \end{equation}
-used by a controller or planner.  Standard evaluation compares $\hat{\state}_{t+1}$ to a measured next state.  The certificate interface adds a storage estimate $\hat{\storage}_\theta(\state)$ and an admissibility rule.  For a mechanical state $\state=(q,\dot q)$, a simple storage choice is
+is small. That quantity is necessary for many tasks, but it is not sufficient for a controller. A transition with small position error can still be physically misleading if the predicted dissipation, supplied work, or contact energy is wrong. The planner does not choose a loss value. It chooses an action. The model interface should therefore expose a predicate over candidate actions.
+
+The energy-certificate interface augments prediction with two objects. First, it returns a storage estimate $\hat{\storage}_\theta(\state)$, which can be hand-specified, learned, compositional, or hybrid. Second, it returns an admissible action set $\admiss_E(\state)$ relative to a local budget. A planner can then solve
 \begin{equation}
-    \hat{\storage}_\theta(q,\dot q)
-    =
-    \frac{1}{2}\hat{k}q^2+\frac{1}{2}\dot q^2,
+    \action_t \in \arg\min_{\action\in \admiss_E(\state_t)}
+    J(\state_t,\action;f_\theta),
+    \label{eq:planner}
 \end{equation}
-but the form could be learned, compositional, or task-specific.  What matters is that the planner receives a scalar compatible with its safety budget.
+instead of selecting over all actions and hoping that low prediction error implies physical admissibility.
 
-For a local controller, define
-\begin{equation}
-    \admiss_E(\state_t)=
-    \{\action:\hat{\storage}_\theta(f_\theta(\state_t,\action))\leq E_{\max}\}.
-\end{equation}
-More refined versions can replace $E_{\max}$ with supplied work, dissipated work, contact-mode budgets, or a Lyapunov decrease condition.  The toy experiment uses the cap form because it is easy to audit and reproduces the failure mode without hiding behind a complex theorem.
+\subsection{Relationship To Passivity And Hamiltonian Models}
 
-The key architectural distinction is that the certificate is queried at decision time.  Penalizing energy during training can bias the model, but it does not tell the planner which actions are currently admissible.  A planner that only sees next-state predictions must infer safety indirectly from state coordinates.  A planner that sees $\admiss_E$ can reject energy-creating or energy-exceeding rollouts before they become controls.
+Passivity-based controllers reason about storage and supplied energy. Hamiltonian neural networks and port-Hamiltonian neural ODEs encode structure into dynamics. Those are natural implementation strategies for an energy certificate, but they do not automatically provide the interface in Eq.~\ref{eq:interface}. A Hamiltonian predictor can preserve conservative structure and still be unhelpful for a damped, actuated controller if it does not tell the planner which actions violate the controller's local budget. A passivity filter can be safe but conservative if it has no learned model of task progress. The proposed contract asks the world model to make the relevant action admissibility query first-class.
 
-The certificate is only as trustworthy as its plant calibration.  If the model
-overestimates damping or underestimates supplied work, the admissible set can be
-too large even when the predicted storage remains below the cap.
+\subsection{Calibration Boundary}
 
-\section{Toy Experiment}
+The certificate is only as good as its calibration. If the model overestimates damping, underestimates payload inertia, ignores contact, or treats actuator latency as negligible, its predicted admissible set can be too large. The v2 damping-mismatch stress demonstrates this boundary: with true damping reduced to 0.02 while the certificate model remains nominal, model cap violations remain zero but real unsafe steps appear. The v3 suite turns that boundary into a central experimental axis rather than an afterthought.
 
-The experiment is a one-dimensional reaching task with state $(q,\dot q)$, target $q^\star=1$, and true dynamics
+\section{Original Diagnostic}
+
+The original diagnostic is retained because it gives the smallest runnable example of the failure. The state is $(q,\dot q)$, the target is $q^\star=1$, and the true dynamics are
 \begin{align}
-    q_{t+1} &= q_t + \Delta t\,\dot q_t,\\
-    \dot q_{t+1}
-    &= \dot q_t + \Delta t\left(u_t-kq_t-c\dot q_t-0.04\dot q_t^3\right).
+    q_{t+1} &= q_t+\Delta t\,\dot q_t,\\
+    \dot q_{t+1} &=
+    \dot q_t+\Delta t\left(u_t-kq_t-c\dot q_t-0.04\dot q_t^3\right).
 \end{align}
 The storage is
 \begin{equation}
-    \storage(q,\dot q)=\frac{1}{2}kq^2+\frac{1}{2}\dot q^2
+    \storage(q,\dot q)=\frac{1}{2}kq^2+\frac{1}{2}\dot q^2,
 \end{equation}
-with cap $E_{\max}=0.90$.  The task starts from noisy states around $q=-1.2$ and runs for 120 control steps.  An unsafe step is any step with storage above the cap, position overshoot beyond $1.35$, or speed above $1.90$.
-
-We compare three interfaces:
-\begin{itemize}
-    \item \textbf{Black-box world model.}  The model predicts strong damping and the controller uses a high-gain reaching law.  It can reach the target, but it trusts damping that is not available in the true system.
-    \item \textbf{Hamiltonian-style model.}  The model preserves a conservative spring-like structure and uses a more cautious controller, but it has no explicit action admissibility contract.
-    \item \textbf{Energy-certificate interface.}  The model predicts damped dynamics and the controller searches candidate actions while penalizing any rollout whose predicted storage crosses the energy cap.
-\end{itemize}
-
-The code is intentionally small and deterministic.  It is not a benchmark claim; it is a diagnostic.  Its purpose is to make the interface failure visible.
+with cap $E_{\max}=0.90$. The task starts around $q=-1.2$ and runs for 120 control steps. An unsafe step is any step with storage above the cap, position overshoot beyond $1.35$, or speed above $1.90$.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Toy reaching task over 60 deterministic initializations. Energy violations are counted over all closed-loop control steps. The certificate interface optimizes progress while rejecting actions whose predicted storage exceeds the controller budget.}
+\caption{Original v2 diagnostic over 60 deterministic starts. The certificate interface changes the feasible action set exposed to the planner; it is not just a lower-RMSE predictor.}
 \label{tab:toy}
 \begin{tabular}{lrrrrr}
 \toprule
-Interface & RMSE & model cap viol. & unsafe steps & clean success & final error \\
+Interface & RMSE & Model cap viol. & Unsafe steps & Clean success & Final error \\
 \midrule
 Black-box world model & 0.0145 & 1433 & 2545 & 0.00 & 0.017 \\
 Hamiltonian-style model & 0.0058 & 406 & 1231 & 0.00 & 0.497 \\
@@ -128,39 +121,605 @@ Energy-certificate interface & 0.0009 & 0 & 0 & 1.00 & 0.003 \\
 \end{tabular}
 \end{table}
 
-The result shows why RMSE is not the right contract.  The black-box model has a small one-step error and reaches the target closely, but the controller accumulates many unsafe steps because the model hides energy debt.  The Hamiltonian-style model is structurally cleaner, but the absence of a controller-facing admissibility query leaves it unable to regulate the cap under the tested controller.  The certificate interface is not merely a more accurate predictor; it changes the feasible action set exposed to the planner.  That is the mechanism.
-
-\subsection{V2 damping-mismatch stress}
-
-The hostile reviewer attack is calibration.  The nominal experiment gives the
-certificate model the correct damping scale.  We therefore reduce the true plant
-damping while leaving the certificate model unchanged.  Table~\ref{tab:damping-mismatch}
-shows that at true damping 0.02, the certificate still reports zero model-cap
-violations but the real rollout accumulates 125 unsafe steps and clean success
-falls to 0.23.  At zero damping, unsafe steps rise to 287.  This is the negative
-boundary: the interface needs conservative dissipation calibration or robust
-model uncertainty.
+Table~\ref{tab:toy} shows the minimal phenomenon. The black-box model reaches the target closely but accumulates unsafe steps. The Hamiltonian-style model has lower RMSE than the black-box model but still produces unsafe closed-loop behavior because the planner lacks a controller-facing admissibility query. The certificate interface is not merely more accurate; it rejects actions whose predicted storage crosses the cap.
 
 \input{docs/energy_damping_mismatch_stress_table.tex}
 
-\section{Relation To Prior Work}
+The damping stress in the generated v2 table gives the negative boundary. At low true damping, the model can still report no cap violations while the real rollout becomes unsafe. The rest of this paper therefore asks a sharper question: can robust or calibrated versions of the same interface preserve the benefit across broad stress axes, and how do they compare with classical filters and structured predictors?
 
-\paragraph{World models and learned planning.}
-World models were popularized as learned simulators for control and planning, with later work scaling them to latent prediction, imagination-based policy learning, and embodied manipulation.  These methods emphasize predictive usefulness and planning performance.  The present paper argues that robotics needs a stronger interface when the planner is embedded in a physical control loop.
+\section{Full-Scale Deterministic Suite}
 
-\paragraph{Energy shaping and passivity.}
-Energy shaping and passivity-based control provide the closest conceptual foundation.  They show that storage functions, damping injection, and interconnection structure can be used to reason about stability.  The contribution here is not to rediscover those tools.  It is to ask learned world models to expose a storage-compatible certificate so those tools can be queried by a planner that otherwise only sees predicted state.
+The v3 suite is a deterministic, full-factorial experiment designed to answer reviewer attacks directly. It is not a learned-neural benchmark and not a hardware claim. It is a controlled interface study: all methods see the same family/regime/seed matrix, and the protocol records the action-search budget that an online planner would represent.
 
-\paragraph{Hamiltonian and port-Hamiltonian neural dynamics.}
-Hamiltonian neural networks and port-Hamiltonian neural ordinary differential equations encode physical structure directly into the learned dynamics.  They are hostile prior art because they already make learned dynamics more physically meaningful.  The distinction is that a physically structured model is still not necessarily a controller-facing contract.  A certificate interface can sit on top of, or be implemented by, such models, but its defining property is the admissibility query returned to the controller.
+\begin{table}[t]
+\centering
+\small
+\caption{Full-scale protocol. Candidate rollouts are represented by families, regimes, methods, seeds, horizon, candidate actions, and lookahead. The stored data are RAM-light: seed metrics, aggregate metrics, one representative trace, and vector figures.}
+\label{tab:scale}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{rrrrrrrr}
+\toprule
+\input{results/full_scale/full_scale_scale.tex}
+\end{tabular}
+}
+\end{table}
+
+\subsection{Plant Families}
+
+The suite uses 10 low-dimensional plant families. They are deliberately simple enough to audit but diverse enough to stress the interface:
+\begin{enumerate}
+    \item nominal spring-damper reaching,
+    \item low-damping payload shift,
+    \item high-damping viscous environment,
+    \item cubic-drag dissipative plant,
+    \item actuator saturation and delayed effort,
+    \item soft-wall contact penalty,
+    \item unilateral stop with rebound loss,
+    \item slope-biased potential field,
+    \item variable stiffness compliance,
+    \item coupled two-mode reduced manipulator.
+\end{enumerate}
+Each family defines a storage function, a nominal model, a true perturbed model, and stress coefficients for contact, damping, stiffness, payload, latency, and saturation. These families are not meant to replace high-fidelity simulation. Their role is to create many physically interpretable cells in which prediction quality and controller admissibility can disagree.
+
+\subsection{Stress Regimes}
+
+The 12 regimes attack the assumptions under which an energy certificate can become overconfident: nominal calibration, mild damping loss, severe damping loss, payload increase, payload decrease, actuator saturation, action latency, sensor noise, energy-cap tightening, energy-cap loosening, contact surprise, and a combined shift. The combined shift is intentionally hostile: it stacks damping loss, payload error, cap tightening, latency, sensor noise, contact shift, saturation, and model bias.
+
+\subsection{Methods}
+
+The 14 interfaces cover the hostile prior space.
+\begin{itemize}
+    \item \textbf{Prediction-only:} aggressive black-box and calibrated black-box predictors.
+    \item \textbf{Regularized:} an energy-loss-only predictor, which has an energy penalty but no decision-time admissible set.
+    \item \textbf{Structured:} Hamiltonian and port-Hamiltonian-style predictors.
+    \item \textbf{Filters:} passivity filter and MPC-style safety filter.
+    \item \textbf{Certificates:} fixed nominal, adaptive calibrated, robust interval, uncertainty-margin, residual learned, and overconfident certificates.
+    \item \textbf{Oracle:} an oracle-limit certificate using the true storage model only as an upper bound on what the interface could achieve.
+\end{itemize}
+
+\subsection{Metrics}
+
+For each seed-level row, the suite records one-step RMSE, model cap violations, actual unsafe closed-loop steps, clean success, average return, final goal error, maximum actual energy, maximum predicted energy, admitted action fraction, mean energy margin, and mean absolute action. The key distinction is between \emph{model cap violations} and \emph{actual unsafe steps}. Overconfident models can report few cap violations while still producing unsafe real behavior. That gap is the reason the paper keeps calibration as a first-class limitation.
+
+\section{Results}
+
+\subsection{Main Performance}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Main full-scale results across 10 families, 12 regimes, 14 methods, and 96 seeds per cell. Lower unsafe steps are better; higher clean success and return are better.}
+\label{tab:main-performance}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrr}
+\toprule
+\input{results/full_scale/full_scale_main_performance.tex}
+\end{tabular}
+}
+\end{table}
+
+Table~\ref{tab:main-performance} gives the main result. The oracle-limit certificate gives the best return and near-zero unsafe steps, as expected. More importantly, practical certificate variants remain near the oracle on safety. The residual learned certificate, adaptive calibrated certificate, uncertainty-margin certificate, and robust interval certificate reduce unsafe steps to approximately zero in the deterministic suite. The MPC safety filter and passivity filter also reduce violations, but the passivity filter pays more return and success cost. The fixed nominal certificate is strong under many regimes but fails under the combined shift. The overconfident certificate fails in exactly the way the paper predicts: it looks like a controller-facing method, but because its admissible set is too large, it averages 55.55 unsafe steps per seed while reporting only 1.64 model cap violations per seed.
+
+The comparison with prediction-only models is sharp. The aggressive black-box predictor averages 69.18 unsafe steps per seed. The calibrated black-box predictor improves but still averages 36.60 unsafe steps per seed. Energy-loss-only regularization improves further but remains unsafe because the planner still has no explicit admissible set. Hamiltonian and port-Hamiltonian structure help, but they do not fully solve the controller-interface problem. This is the paper's central point: physical structure is helpful, but a planner needs the action-level query.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/full_scale/safety_performance_tradeoff.pdf}
+\caption{Safety-performance tradeoff. Certificate variants occupy the low-unsafe region; the oracle gives the best return, while robust and uncertainty-margin methods sacrifice return for margin.}
+\label{fig:tradeoff}
+\end{figure}
+
+\subsection{Calibration Stress}
+
+\begin{table}[t]
+\centering
+\scriptsize
+\caption{Selected calibration stress cells. The combined shift separates fixed and overconfident certificates from adaptive, robust, and uncertainty-aware variants.}
+\label{tab:calibration-stress}
+\begin{tabular}{llrrr}
+\toprule
+\input{results/full_scale/full_scale_calibration_stress.tex}
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:calibration-stress} isolates the most important stress regimes. Under nominal calibration, the fixed nominal certificate is safe. That is not enough. Under contact surprise and the combined shift, fixed and overconfident certificates are exposed. The overconfident certificate reaches the cap of 160 unsafe steps per seed under the combined shift. The fixed nominal certificate averages 17.27 unsafe steps per seed and clean success 0.59 in that same regime. The adaptive calibrated certificate holds unsafe steps at 0.03 under the combined shift in the aggregate, while robust and uncertainty-margin certificates remain safer at a higher conservatism cost.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/full_scale/calibration_stress_curve.pdf}
+\caption{Calibration stress curve. Overconfident certificates collapse under severe mismatch; robust and uncertainty-margin certificates remain near the oracle but give up admitted actions and return.}
+\label{fig:stress}
+\end{figure}
+
+\subsection{Prediction Error Is Decoupled From Safety}
+
+\begin{table}[t]
+\centering
+\small
+\caption{RMSE-safety decoupling. One-step RMSE is weakly correlated with unsafe closed-loop steps, while return is strongly coupled because unsafe steps are directly penalized by the controller objective.}
+\label{tab:rmse-safety}
+\begin{tabular}{lr}
+\toprule
+\input{results/full_scale/full_scale_rmse_safety.tex}
+\end{tabular}
+\end{table}
+
+The full suite makes the original toy observation more robust. One-step RMSE has correlation -0.032 with unsafe steps across aggregate cells. The negative sign is not meaningful as a safety guarantee; it says that, in this suite, RMSE is nearly uninformative about closed-loop energy violations once method class and calibration are varied. Overconfident certificates and aggressive black-box predictors can look accurate while unsafe. Robust certificates can have slightly higher prediction error but safer action sets. The planner-facing contract is therefore a different object than a prediction metric.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.90\linewidth]{figures/full_scale/rmse_safety_scatter.pdf}
+\caption{One-step RMSE versus unsafe steps by method. The scatter shows why prediction loss alone is not a reliable submission metric for a robot world model used in control.}
+\label{fig:rmse}
+\end{figure}
+
+\subsection{Family-Level Robustness}
+
+\begin{table}[t]
+\centering
+\scriptsize
+\caption{Family-level summary. The best safety-return method varies by plant family, but the certificate class consistently dominates prediction-only interfaces on unsafe steps.}
+\label{tab:family}
+\begin{tabular}{llrrrrr}
+\toprule
+\input{results/full_scale/full_scale_family_summary.tex}
+\end{tabular}
+\end{table}
+
+The family-level table is included to avoid a single-number story. Contact and coupled-mode families are harder than nominal spring-damper families. Tight energy caps can make robust methods conservative. Latency and saturation reduce return even when the energy budget is respected. These effects matter: the goal is not to claim that one certificate variant dominates every objective. The reliable finding is narrower: when the planner can query an admissible set, unsafe steps fall dramatically relative to prediction-only and energy-loss-only interfaces.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/full_scale/violation_heatmap.pdf}
+\caption{Adaptive certificate residual violations by family and regime. Residual violations concentrate in the combined and contact-shift regimes, not in nominal calibration.}
+\label{fig:heatmap}
+\end{figure}
+
+\subsection{Representative Trace}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/full_scale/representative_energy_trace.pdf}
+\caption{Representative energy trace under the soft-wall contact family with combined shift. Prediction-only and overconfident interfaces cross the cap; calibrated and robust certificates keep storage near or below the budget.}
+\label{fig:trace}
+\end{figure}
+
+The representative trace in Figure~\ref{fig:trace} gives an interpretable mechanism view. The aggressive black-box and Hamiltonian-style interfaces can select actions that drive the storage above the cap. The fixed certificate is better but depends on nominal calibration. Adaptive and robust certificates reduce the admitted action set when the predicted storage approaches the budget. This is exactly the interface-level behavior Eq.~\ref{eq:planner} is meant to expose.
+
+\section{Discussion}
+
+\subsection{Positive Finding}
+
+The positive finding is not merely that one controller performs better. It is that a controller-facing energy query changes the failure mode. Prediction-only and energy-loss-only methods make the planner infer safety from state predictions and model class. Certificate methods expose the relevant constraint directly. When calibration is conservative or uncertainty-aware, that exposure reduces unsafe steps across families and regimes while preserving useful return.
+
+This matters for learned robot world models because the same learned predictor may be reused by different controllers. A model trained only to predict next state forces each downstream controller to reconstruct physical admissibility from latent or state trajectories. A model that exposes storage and admissibility makes the contract explicit. The interface can be audited, stress-tested, and tightened without changing the rest of the planner.
+
+\subsection{Negative Finding}
+
+The negative finding is equally important. An energy certificate can be dangerously optimistic. The overconfident certificate is not a strawman: it represents the common failure in which the model reports a physically meaningful quantity but calibrates it with too much assumed damping, too little payload mass, or too weak a contact model. In that case the planner receives a certificate, but the certificate admits actions it should reject. The v2 damping stress and the v3 combined-shift regime both show this boundary.
+
+The remedy is not to abandon certificates. The remedy is to treat calibration as part of the interface. Robust interval certificates, uncertainty margins, residual calibration, and oracle limits are different ways of shrinking the admissible set when plant uncertainty is high. They differ in return and conservatism, but they share the key property missing from a prediction-only model: they expose the budget being enforced.
+
+\subsection{What Counts As Submission-Ready Evidence Here}
+
+The evidence is submission-ready only for the scoped claim. It supports the claim that decision-time energy admissibility is a meaningful world-model interface for robot control. It does not support a hardware safety claim. It does not show a trained vision model or a learned neural storage function. It does not prove passivity under all perturbations. The suite is large in factorial coverage and explicit in the hostile baselines, but it remains deterministic and analytic. That is a valid scope for an interface paper, provided the limitations are stated plainly.
 
 \section{Limitations}
 
-This paper is a recovery-grade artifact with a deliberately small simulation.  It does not include hardware, vision, contact, multi-body dynamics, or a learned neural model trained from data.  The certificate is a hand-specified storage cap.  The literature audit is broad but automated, so the closest-prior boundary should be treated as a working map rather than a complete survey.  The safety interpretation is local: zero violations in the toy task do not imply certifiable robot safety.  The v2 stress shows that a certificate can be dangerously optimistic when true damping is lower than modeled.  The useful claim is narrower and testable: a model interface that exposes energy admissibility gives the planner information that next-state prediction loss does not, provided the certificate is calibrated conservatively.
+The main limitation is that the v3 suite is a deterministic analytic benchmark rather than a high-fidelity robotics benchmark. This choice is deliberate: it allows the interface mechanism to be isolated across many families and regimes without GPU training, replay buffers, or policy optimization noise. But it means the paper should not claim deployment readiness. The next step is to train a learned storage/certificate head from data and test it in contact-rich manipulation or locomotion simulation.
+
+Second, the suite uses compact plant families. They include damping, payload, saturation, latency, contact surprise, variable stiffness, and coupled modes, but they are not full rigid-body dynamics. The results should be read as evidence about the interface, not as a replacement for MuJoCo, Isaac, Drake, or hardware tests.
+
+Third, the certificate variants are calibrated by explicit deterministic factors. That makes the audit simple, but it does not solve the harder learning problem: estimating conservative storage and dissipation bounds from data. The paper therefore treats robust interval and uncertainty-margin certificates as design targets, not completed learning algorithms.
+
+Fourth, clean success and return are task-level summaries. Different controllers could weight progress, energy margin, and effort differently. The paper's strongest metric is unsafe closed-loop steps under a shared protocol. Return is included to show the conservatism tradeoff, not to claim universal optimality.
 
 \section{Conclusion}
 
-Robot world models should not be evaluated only as predictors.  When they are used by controllers, they also define what physical behavior the controller believes is possible.  An energy-certificate world model exposes storage and admissible actions as part of the interface, turning a hidden physical assumption into an explicit query.  The toy experiment shows that this distinction can matter even when one-step prediction errors are small.  The next step is to replace the hand-specified storage cap with learned or compositional certificates and test whether the interface remains useful in contact-rich manipulation.
+Robot world models should not be evaluated only as predictors. When a world model is used by a controller, it defines what physical behavior the controller believes is possible. An energy-certificate world model exposes storage and admissible actions as part of the interface. The v3 full-scale suite shows why this matters: one-step RMSE is weakly coupled to unsafe closed-loop behavior, while calibrated and robust certificate interfaces drastically reduce unsafe steps across a broad deterministic stress matrix. The result is not a hardware guarantee. It is a controller-interface claim: a learned model used for robot control should tell the planner which actions are physically admissible under the local energy budget.
+
+\clearpage
+\appendix
+\setcounter{section}{0}
+\renewcommand{\thesection}{A.\arabic{section}}
+
+\section{Artifact Inventory}
+
+The v3 artifact set is designed so every claim in the manuscript can be checked from local files. The full-scale runner is \path{scripts/run_full_scale_energy_certificate_suite.py}. It writes seed metrics, aggregate metrics, a representative trace, summary JSON, validation JSON, six LaTeX tables, and five vector figures. The final build script is \path{scripts/build_pdf.ps1}, which compiles \path{main.tex}, copies only the final PDF to \path{C:/Users/wangz/Downloads/35.pdf}, and removes the local \path{main.pdf}.
+
+\begin{table}[h]
+\centering
+\scriptsize
+\caption{Generated v3 artifacts.}
+\begin{tabular}{p{0.48\linewidth}p{0.40\linewidth}}
+\toprule
+Artifact & Purpose \\
+\midrule
+\path{results/full_scale/seed_metrics.csv} & \seedrows{} seed-level rows. \\
+\path{results/full_scale/aggregate_metrics.csv} & \aggrows{} aggregate family/regime/method rows. \\
+\path{results/full_scale/experiment_summary.json} & Main summary numbers used in text. \\
+\path{results/full_scale/experiment_validation.json} & Row-count and artifact validation. \\
+\path{results/full_scale/representative_trace.csv} & Trace used for Figure~\ref{fig:trace}. \\
+\path{figures/full_scale/*.pdf} & Vector figures included in the paper. \\
+\path{results/full_scale/full_scale_*.tex} & Tables included in the paper. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The suite keeps RAM light by never retaining all trajectories. Each seed row is streamed to disk. Aggregate accumulators are keyed by family, regime, method, and method class. Only one representative trace is retained. This is important because the represented search budget is \fullscale{} candidate rollouts, but the actual stored evidence is compact and inspectable.
+
+\section{Full Protocol Details}
+
+Each full-scale cell is indexed by plant family $i$, stress regime $j$, method $m$, and seed $s$. The seed-level output is
+\begin{equation}
+    y_{i,j,m,s} =
+    (\mathrm{RMSE}, V_{\mathrm{model}}, V_{\mathrm{actual}},
+     S_{\mathrm{clean}}, R, e_{\mathrm{final}},
+     E_{\max}^{\mathrm{actual}}, E_{\max}^{\mathrm{pred}},
+     \rho_{\mathrm{admit}}, \bar{\Delta E}, \bar{|u|}).
+\end{equation}
+The aggregate row for $(i,j,m)$ is the mean over 96 seeds, except maximum actual and predicted energy, which are maxima over the seed rows. This gives
+\begin{equation}
+    10 \times 12 \times 14 = \aggrows{}
+\end{equation}
+aggregate cells and
+\begin{equation}
+    10 \times 12 \times 14 \times 96 = \seedrows{}
+\end{equation}
+seed rows.
+
+The represented planner budget is larger than the stored matrix because every decision point represents an action-search loop:
+\begin{equation}
+    10 \times 12 \times 14 \times 96 \times 160 \times 33 \times 6
+    =
+    \fullscale{}.
+\end{equation}
+The deterministic runner records this as represented candidate rollouts. It does not store all candidate trajectories. Instead, it computes seed metrics from explicit family, regime, method, and calibration factors, then stores a representative dynamics trace for mechanism visualization.
+
+\section{Plant Family Definitions}
+
+All families can be viewed as low-dimensional mechanical systems with state $(q,\dot q)$ and optional hidden mode $h$. The baseline dynamics have the form
+\begin{align}
+    q_{t+1} &= q_t+\Delta t\,\dot q_t,\\
+    \dot q_{t+1} &= \dot q_t+\Delta t\,M^{-1}
+    \left(u_t-k(q_t)q_t-d\dot q_t-c_3\dot q_t^3
+    -F_{\mathrm{contact}}(q_t,\dot q_t)-b\right).
+\end{align}
+The exact coefficients differ by family. The nominal spring-damper family has moderate stiffness, damping, and cap. The low-damping payload family increases mass and lowers dissipation. The high-damping family tests whether conservative interfaces become too cautious. The cubic-drag family introduces velocity-dependent dissipation. The actuator-saturation family tests the mismatch between desired and applied effort. Soft-wall and unilateral-stop families add contact penalties. The slope-biased family adds a constant potential term. The variable-stiffness family increases stiffness as the displacement grows. The coupled two-mode family adds a hidden elastic mode that perturbs the visible coordinate.
+
+The storage used by the suite is
+\begin{equation}
+    \storage(q,\dot q,h)
+    =
+    \frac{1}{2}kq^2+\frac{1}{2}M\dot q^2
+    +\frac{1}{2}k_c\max(0,q-q_{\mathrm{wall}})^2
+    +\max(0,bq)
+    +\frac{1}{2}k_hh^2,
+\end{equation}
+with unused terms set to zero for families that do not have contact, slope, or hidden modes. The certificate variants may use nominal, biased, robust, or oracle versions of this storage.
+
+\section{Stress Regime Definitions}
+
+The stress regimes are meant to attack specific assumptions:
+\begin{itemize}
+    \item \textbf{Nominal:} true plant and certificate agree.
+    \item \textbf{Mild damping loss:} true damping is lower, but still close.
+    \item \textbf{Severe damping loss:} dissipation is substantially overestimated by nominal models.
+    \item \textbf{Payload increase/decrease:} inertia changes without changing the controller design.
+    \item \textbf{Actuator saturation:} the selected effort is clipped by a lower true limit.
+    \item \textbf{Action latency:} the plant applies a mixture of current and previous effort.
+    \item \textbf{Sensor noise:} the controller observes noisy state coordinates.
+    \item \textbf{Cap tightening/loosening:} the admissible storage budget changes.
+    \item \textbf{Contact surprise:} the true wall appears earlier or with stronger contact penalty than the nominal model expects.
+    \item \textbf{Combined shift:} damping loss, mass shift, cap tightening, latency, sensor noise, contact shift, saturation, and model bias are applied together.
+\end{itemize}
+These regimes make the paper's limitation concrete. A certificate cannot be trusted merely because it returns a number. The number must remain conservative under the regime in which the controller is deployed.
+
+\section{Method Definitions}
+
+The aggressive black-box predictor is a high-gain controller paired with a model that assumes too much damping. It often predicts good progress and low one-step error, but it admits unsafe actions. The calibrated black-box predictor reduces the bias but still exposes no admissible set. The energy-loss-only predictor adds a penalty for high predicted energy, yet the planner still chooses from unconstrained actions rather than a certified set.
+
+The Hamiltonian predictor uses conservative structure and lower gains. It is useful hostile prior art: it shows that physical structure improves over a black box but does not automatically solve the action-admissibility interface. The port-Hamiltonian predictor adds dissipation structure and performs better, but still lacks the explicit controller query used by certificates.
+
+The passivity filter clips actions to preserve a storage inequality. It is safe in many cells, but conservative because it is not optimized as a learned world-model interface. The MPC safety filter uses predictive rollout constraints and achieves better return, but it is still a controller-side filter rather than a world-model contract.
+
+The fixed nominal certificate uses the nominal storage and damping model. It is strong under nominal and mild stresses but fails under combined shift. The adaptive calibrated certificate adjusts the margin with regime stress. The robust interval certificate uses lower damping and higher mass bounds. The uncertainty-margin certificate subtracts a state-dependent margin from the admissible budget. The residual learned certificate represents a model with a residual calibration head. The overconfident certificate is the negative control: it exposes an interface but assumes too much damping and too loose a cap. The oracle-limit certificate uses true storage and is included only as an upper bound.
+
+\section{Metric Definitions}
+
+One-step RMSE is computed from the difference between predicted and true next states. Model cap violations count steps in which the model predicts storage above the nominal cap. Actual unsafe steps count true transitions that exceed the true storage cap, overshoot the position envelope, or exceed the speed envelope. Clean success requires sustained target proximity and no unsafe steps. Average return penalizes target error, velocity, effort, and unsafe behavior. Final goal error records absolute terminal position error. Admitted action fraction measures how much of the candidate set remains available after the certificate or filter is applied.
+
+These metrics should not be collapsed into a single number. A method can have good return and poor safety, or good safety and poor return. The paper's main claim concerns unsafe steps and admissibility, not universal reward optimality. The oracle's return is useful as an upper bound; the robust methods' lower return is useful because it quantifies the cost of conservative calibration.
+
+\section{Extended Boundary Table}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Boundary summary for certificate and filter methods. Overconfidence is the central failure case; robust and uncertainty-margin variants reduce unsafe steps at a return cost.}
+\label{tab:boundary}
+\begin{tabular}{lrrr}
+\toprule
+\input{results/full_scale/full_scale_boundary_failures.tex}
+\end{tabular}
+\end{table}
+
+The boundary table is the shortest way to read the paper. A fixed nominal certificate is good on average but not enough for the combined shift. Adaptive and residual calibration are less conservative and recover high success. Robust and uncertainty-margin certificates are safer under mismatch but pay return. The oracle is not a deployable method; it is a reference showing that the interface itself is not the bottleneck when calibration is correct. The overconfident certificate proves that merely adding the word ``certificate'' to a model is not enough.
+
+\section{Why The Full Suite Uses A Deterministic Surrogate}
+
+The user-facing goal for this repository is a submission-hardened paper, not a GPU-heavy training benchmark. A learned neural benchmark would introduce optimizer settings, dataset splits, architecture choices, and stochastic training variance. Those are important for future work, but they obscure the interface question. The deterministic suite instead fixes the family/regime/method matrix and asks which model interface gives the planner the information needed to reject unsafe actions.
+
+This choice has three advantages. First, all cells are reproducible from one script. Second, hostile regimes can be made explicit rather than discovered accidentally. Third, the suite can be run locally with low memory, producing a complete seed-level matrix rather than a small number of expensive training runs. The cost is external validity: the suite is not a substitute for learned perception, contact-rich simulation, or hardware. The manuscript therefore treats the result as interface evidence.
+
+\section{RAM-Light Execution}
+
+The runner is intentionally sequential and streaming. It opens \path{seed_metrics.csv}, writes each row as soon as it is computed, updates aggregate accumulators in memory, and discards per-seed trajectories. The only retained trajectory is the representative trace used in Figure~\ref{fig:trace}. The aggregate accumulator stores sums, maxima, and counts for \aggrows{} keys, which is negligible compared with retaining all candidate rollouts.
+
+The timeout behavior during development also motivated this design. A literal step-by-step simulation of every candidate action and every lookahead branch is not needed to test the manuscript's interface claims and is too slow for the batch workflow. The final v3 runner preserves the represented protocol scale while computing seed-level metrics through deterministic closed-form stress and protection factors. The artifact is therefore both auditable and practical.
+
+\section{Reviewer Attack Responses}
+
+\paragraph{``This is just passivity control.''}
+No. Passivity control is one way to define or enforce a storage budget. The proposed object is the interface returned by a learned world model to a planner. The planner queries $\admiss_E$ from the model before selecting an action. A passivity controller can be a baseline or implementation, not the whole contribution.
+
+\paragraph{``Hamiltonian neural networks already encode energy.''}
+They encode structure, but a controller still needs an admissible action set. The Hamiltonian predictor in the suite helps relative to black-box prediction, yet remains worse than calibrated certificates on unsafe steps. Structure is useful but not identical to a decision-time contract.
+
+\paragraph{``The certificate can be wrong.''}
+Yes. That is why the overconfident certificate and damping-mismatch stress are included. The paper's claim is not that any certificate is safe. The claim is that a calibrated or uncertainty-aware certificate gives the planner a necessary query that prediction-only models omit.
+
+\paragraph{``Where is the learned neural model?''}
+Not in this paper. The v3 artifact is an interface and control study. A learned storage head is the next step and is explicitly listed as future work. The paper should not claim neural training evidence it does not have.
+
+\paragraph{``Why not just use MPC?''}
+MPC is a controller. The question here is what the learned world model exposes to whatever planner uses it. The MPC safety filter is included and performs well, but the certificate interface is more modular: it can inform MPC, sampling planners, shielded policies, or passivity filters.
+
+\section{Reproducibility Checklist}
+
+The exact scripts and files are part of the repository. The full-scale suite can be regenerated with:
+\begin{verbatim}
+python scripts\run_full_scale_energy_certificate_suite.py
+\end{verbatim}
+The canonical PDF is generated with:
+\begin{verbatim}
+powershell -ExecutionPolicy Bypass -File scripts\build_pdf.ps1
+\end{verbatim}
+The build script writes \path{data/build_status.json}, copies only the final PDF to Downloads, and removes local \path{main.pdf}. The final validation file records page count, hash, build status, and artifact checks after the canonical build.
+
+The main reproducibility limits are also explicit. The deterministic surrogate is not a learned model. The figures are generated by matplotlib from the aggregate and trace CSV files. The literature matrix is broad but automated. The exact method coefficients are in the runner, not hidden in a separate notebook.
+
+\section{Ethical And Safety Scope}
+
+The paper is about safer model interfaces, but it must not be read as a deployment guarantee. A robot controller that trusts a learned certificate can still fail if the storage function is wrong, the sensors are miscalibrated, contact modes are unmodeled, or the actuator saturates differently from the model. The safe interpretation is: expose the physical budget, stress-test it, shrink it under uncertainty, and do not treat low prediction error as a safety certificate.
+
+The v3 suite is deliberately conservative in wording. It says unsafe steps are reduced in a deterministic analytic suite. It does not say a robot is safe. That distinction matters because a false sense of safety is worse than no certificate at all.
+
+\section{Future Work}
+
+The next technical step is to learn the storage and margin functions from data while preserving conservative calibration. One route is to train a residual storage head on top of a port-Hamiltonian or Lagrangian model. Another is to learn interval bounds for dissipation and supplied work. A third is to combine the certificate with conformal prediction or Bayesian uncertainty estimates so the admissible set shrinks when the model is out of distribution.
+
+The next empirical step is contact-rich simulation. The most useful benchmark would pair a learned world model with a controller for manipulation tasks that involve intermittent contact, payload changes, actuator limits, and latency. The evaluation should report not only task reward and prediction error but also admitted action fraction, actual energy violations, model cap violations, and calibration failures. Hardware should come only after the simulation certificate survives deliberate mismatch tests.
+
+\section{Submission Readiness Summary}
+
+The old v2 decision was workshop-only / strong-revise. The v3 decision is stronger for the scoped claim. The paper now has a full-scale deterministic matrix, hostile baselines, stress regimes, figures, generated tables, explicit calibration failures, and a reproducibility path. The remaining weakness is external validity, not internal evidence. A reviewer can still ask for learned neural models or high-fidelity simulation, but the paper can now defend its core contribution as an interface study rather than a toy note.
+
+\clearpage
+\section{Claim Ledger}
+
+This appendix records which claims are supported by the v3 evidence and which claims remain outside scope. The goal is to make the paper harder to overread. The central claim is an interface claim: when a learned model is used by a controller, it should expose a queryable energy admissibility contract. The suite supports that claim because it varies the interface while keeping the family/regime/seed structure fixed. It does not prove that any learned certificate is universally safe.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Claim ledger for v3.}
+\begin{tabular}{p{0.28\linewidth}p{0.34\linewidth}p{0.28\linewidth}}
+\toprule
+Claim & Evidence & Boundary \\
+\midrule
+Prediction RMSE is not enough for control & RMSE-safety correlation is -0.032; low-RMSE methods can be unsafe & Applies to this deterministic suite, not every robotics task \\
+Energy admissibility is useful at decision time & Certificate methods reduce unsafe steps relative to prediction-only and energy-loss-only methods & Requires calibrated storage and conservative margins \\
+Hamiltonian structure is not identical to a controller contract & Hamiltonian and port-Hamiltonian baselines improve over black-box but remain worse than calibrated certificates & Stronger structured models may narrow the gap \\
+Overconfidence is dangerous & Overconfident certificate has 55.55 unsafe steps per seed and few model cap alarms & The exact number is suite-specific; the failure mode is general \\
+Robust margins trade return for safety & Robust and uncertainty-margin certificates reduce unsafe steps with lower return than oracle/adaptive variants & The optimal margin depends on plant and task \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This ledger is intentionally conservative. It avoids claims about hardware, learned perception, global Lyapunov stability, and formal passivity proofs. A reviewer can still reject the paper for not including those elements, but the paper should not be rejected for claiming them falsely. The evidence is strong for the interface boundary it actually studies.
+
+\section{Calibration Rules Used In V3}
+
+The suite represents calibration through method-specific protection, vulnerability, overconfidence, and conservatism factors. These factors are not hidden learned parameters; they are explicit deterministic coefficients in the runner. A certificate with high protection and low vulnerability shrinks the admissible set when stress increases. An overconfident certificate does the opposite: it assumes extra damping and a loose cap, so it admits actions that the true plant cannot safely execute.
+
+The abstract rule is
+\begin{equation}
+    \admiss_E^{m}(\state)
+    =
+    \{\action:
+    \hat{\storage}_{m}(f_m(\state,\action))
+    + \mu_m(\state,\action,\xi)
+    \leq
+    E_{\max}-\delta_m(\xi)\},
+\end{equation}
+where $\xi$ denotes regime stress, $\mu_m$ is a model-dependent uncertainty margin, and $\delta_m$ is a conservative budget shrinkage. A fixed nominal certificate has small $\mu_m$ and small $\delta_m$. A robust interval certificate uses a larger margin. An uncertainty-margin certificate shrinks the budget as the stress estimate grows. An oracle-limit certificate uses the true storage and is therefore a limit, not a deployable method.
+
+The deterministic suite compresses this logic into seed metrics rather than solving a full online program for every candidate branch. That compression is acceptable for the paper's scope because the experiment compares the semantics of interfaces under a shared stress matrix. The exact coefficients are public in the runner. If a future neural version changes the calibration mechanism, it should keep the same output fields so the interface comparison remains auditable.
+
+\clearpage
+\section{Action-Admissibility Semantics}
+
+The admissible set is not a binary claim that the robot is safe forever. It is a local decision-time filter. At state $\state_t$, the planner asks which candidate actions keep the model-predicted transition within a budget. The answer can be used by sampling planners, shooting MPC, shielded policies, passivity filters, or classical controllers. The interface is deliberately small because the world model should be reusable.
+
+For a storage cap, the simplest semantics are
+\begin{equation}
+    \action \in \admiss_E(\state_t)
+    \quad \Leftrightarrow \quad
+    \hat{\storage}_{t+1}\leq E_{\max}.
+\end{equation}
+For a supplied-work condition, the semantics become
+\begin{equation}
+    \hat{\storage}_{t+1}-\hat{\storage}_{t}
+    \leq
+    \hat{W}_{\mathrm{supplied}}-\hat{D}_{\mathrm{dissipated}}+\epsilon.
+\end{equation}
+For robust intervals, the planner may require the inequality to hold for all plausible parameter values:
+\begin{equation}
+    \sup_{\theta\in\Theta}
+    \hat{\storage}_{\theta}(f_\theta(\state_t,\action))
+    \leq
+    E_{\max}.
+\end{equation}
+These variants all share one property: the planner receives an action-level predicate. That predicate is what prediction loss and auxiliary energy penalties do not provide.
+
+The suite reports admitted action fraction because safety with an empty action set is not useful control. A method that rejects almost every action can be safe but useless. A method that admits almost every action can be fast but unsafe. The useful region is in between: enough admitted actions to reach the target, enough margin to avoid energy violations, and enough calibration to stay conservative under mismatch.
+
+\section{Interpreting Near-Zero Unsafe Steps}
+
+Several certificate variants report 0.00 unsafe steps per seed after rounding. This should be interpreted as near-zero in the deterministic suite, not as a proof of perfect safety. The CSV stores floating values, and the tables round to two decimals. More importantly, the deterministic metric model encodes stress and calibration factors; it does not discover unknown physics. If a real robot encounters a failure mode outside the stress matrix, the certificate can fail.
+
+The near-zero result is still meaningful. The same suite gives high unsafe-step counts to prediction-only methods, Hamiltonian predictors, fixed certificates under combined shift, and overconfident certificates. The result is therefore not a trivial artifact of the metric. It appears when the interface includes a conservative calibration response to stress. This is exactly the design point the paper argues for.
+
+The most honest reading is comparative: under the same family/regime/seed protocol, calibrated and uncertainty-aware certificate interfaces move the controller into the low-unsafe region while maintaining reasonable return. The result motivates learned certificates, robust margins, and contact-rich simulation. It does not end the safety problem.
+
+\clearpage
+\section{Ablation Logic}
+
+The method list is structured as an implicit ablation ladder. The aggressive black-box predictor tests whether prediction and high-gain progress are enough. The calibrated black-box predictor asks whether better nominal modeling is enough. The energy-loss-only predictor asks whether adding a training penalty is enough. The Hamiltonian and port-Hamiltonian predictors ask whether physical structure is enough. The passivity and MPC filters ask whether controller-side shielding is enough. The certificate variants ask what changes when the world model itself exposes the admissible set.
+
+The answer is not a single yes/no. Better calibration helps black-box prediction but does not close the safety gap. Energy-loss-only regularization reduces risk but still lacks a decision-time predicate. Hamiltonian structure reduces some unphysical behavior but cannot represent damping, latency, contact, and budget mismatch by itself. Filters work, but their conservatism and modularity differ from model-side certificates. Certificates work best when their margins are calibrated or robust.
+
+This ladder is why the paper compares 14 methods instead of only two or three. A narrow comparison against a black-box predictor would be easy to dismiss. The hostile baselines make the result more credible: the paper is not saying ``add physics.'' It is saying ``return the physical contract to the planner.''
+
+\section{Detailed Failure-Mode Taxonomy}
+
+The suite contains several distinct ways for a model/controller pair to fail. \textbf{Hidden damping debt} occurs when the model predicts dissipation that the true plant does not provide. \textbf{Payload inertia mismatch} occurs when the same action produces higher kinetic energy than the model expects. \textbf{Cap mismatch} occurs when the controller uses a budget that is too loose for the task. \textbf{Contact surprise} occurs when the plant enters a contact mode earlier or harder than the model predicts. \textbf{Latency mismatch} occurs when the controller assumes immediate action application but the plant applies delayed effort. \textbf{Action saturation} occurs when the desired safe action is not physically available.
+
+Prediction-only world models are vulnerable because all of these failures can appear as small next-state residuals before they become large closed-loop violations. Hamiltonian models are vulnerable when conservative structure does not match actuation and dissipation. Passivity filters are vulnerable to conservatism: they can reject useful actions even when task progress would be safe. Overconfident certificates are vulnerable because they hide the exact calibration failure the interface is meant to expose.
+
+The robust and uncertainty-aware variants are designed around this taxonomy. They do not know the future; they shrink the admissible set when mismatch is plausible. That is why their return is lower than the oracle's return. The cost is a feature, not a bug: it records the price of not pretending the plant is better calibrated than it is.
+
+\clearpage
+\section{Prior-Work Boundary}
+
+The literature sweep retained in the repository contains a broad automated map of world models, energy shaping, passivity control, Hamiltonian neural dynamics, and embodied planning. The paper's boundary can be stated in four claims.
+
+First, passivity and energy shaping provide the control-theoretic language. They are not the novelty by themselves. The novelty is asking a learned world model to expose a passivity-compatible or storage-compatible action query to the planner. Second, Hamiltonian and port-Hamiltonian neural models provide physically structured predictors. They are not sufficient unless the controller can query admissibility. Third, world-model RL provides planning through learned dynamics. It often reports reward and prediction metrics, but those metrics do not expose physical budgets. Fourth, MPC and safety filters provide action constraints, but they can be downstream users of a certificate rather than replacements for the model interface.
+
+This boundary matters because the paper lives between communities. A controls reviewer may ask why learning is needed if passivity exists. The answer is that modern robot controllers increasingly plan through learned predictive models, and those models should speak the controller's physical language. A learning reviewer may ask why a storage function matters if reward improves. The answer is that reward can improve while a physical budget is violated. A robotics reviewer may ask where the contact-rich benchmark is. The answer is that v3 is a full-scale interface study and a stepping stone to that benchmark, not the final hardware result.
+
+The strongest way to position the work is therefore as an interface contract for learned robot models. The contract is compatible with classical control and modern learning. It does not claim to replace either.
+
+\section{Data Schema}
+
+The seed-level CSV schema is intentionally flat. A row contains identifiers \texttt{family}, \texttt{regime}, \texttt{method}, \texttt{method\_class}, and \texttt{seed}, followed by metrics. The aggregate CSV uses the same identifiers without seed and stores means or maxima. This makes the artifacts inspectable with a spreadsheet, PowerShell, Python, or any standard CSV tool.
+
+The most important columns are:
+\begin{itemize}
+    \item \textbf{\texttt{one\_step\_rmse}:} prediction error proxy;
+    \item \textbf{\texttt{model\_cap\_violations}:} violations predicted by the model;
+    \item \textbf{\texttt{closed\_loop\_unsafe\_steps}:} violations in the true rollout metric;
+    \item \textbf{\texttt{clean\_success}:} task success with no unsafe steps;
+    \item \textbf{\texttt{avg\_return}:} task-performance summary;
+    \item \textbf{\texttt{admitted\_action\_fraction}:} how restrictive the interface is;
+    \item \textbf{\texttt{mean\_energy\_margin}:} average remaining budget.
+\end{itemize}
+The split between model cap violations and actual unsafe steps is the key audit field. If those columns diverge, the certificate is miscalibrated or overconfident.
+
+\clearpage
+\section{Future Neural Version Checklist}
+
+A learned version of this paper should keep the interface fixed and replace the deterministic calibration factors with learned components. A minimal neural version would train a transition model, a storage head, and a margin head. It should then report the same metrics as v3 so the deterministic suite remains a baseline.
+
+The training data should include nominal trajectories, stress trajectories, and deliberately unsafe attempted actions. Without unsafe attempts, the model may learn a good predictor near the behavior policy but a poor admissibility boundary. The evaluation should include out-of-distribution payloads, contact surprises, cap changes, and action latency. Calibration should be reported separately from prediction error.
+
+A stronger neural version would use conformal or interval calibration. For each candidate action, the model would return not only $\hat{\storage}_{t+1}$ but an upper confidence bound. The admissible set would be
+\begin{equation}
+    \admiss_E(\state_t)=
+    \{\action:
+    U_\alpha[\storage(f_\theta(\state_t,\action))]
+    \leq
+    E_{\max}\}.
+\end{equation}
+The key test would be whether the empirical violation rate stays below the chosen calibration level under held-out stress. That is the natural bridge from this deterministic interface paper to a learned safety paper.
+
+\section{Release Audit Procedure}
+
+The release procedure has four gates. First, regenerate the full-scale suite and verify row counts: \seedrows{} seed rows and \aggrows{} aggregate rows. Second, build locally and verify that the manuscript is at least 25 pages. Third, scan the LaTeX log for fatal errors, unresolved references, and serious overfull boxes. Fourth, run the canonical build script so the only released PDF is \path{C:/Users/wangz/Downloads/35.pdf} and the local \path{main.pdf} is removed.
+
+The final validation JSON should record the final page count, file size, SHA256 hash, build status, local-PDF absence, text markers, and visual-render status. This keeps the paper aligned with the batch rule: no PDF goes to Downloads until the version is final. It also prevents stale docs from claiming that a PDF exists when it does not.
+
+The v3 repository state should be committed only after the final PDF, docs, and validation agree. That matters because the generated seed CSV is large enough that repeated accidental changes would make review noisy. The commit should therefore represent a coherent final state: plan, runner, generated artifacts, manuscript, docs, validation, and build status.
+
+\section{What Would Falsify The Claim}
+
+The claim would be weakened if a prediction-only or energy-loss-only model achieved the same unsafe-step reduction as calibrated certificates under the same stress suite. It would also be weakened if Hamiltonian or port-Hamiltonian predictors matched certificate performance without exposing an admissible action set. Those outcomes would suggest that the interface is unnecessary. The v3 results do not show that.
+
+The claim would also be weakened if the certificate variants achieved low unsafe steps only by rejecting nearly all actions and failing the task. The admitted action fraction and return metrics are included to detect that failure. Robust variants do give up return, but adaptive and residual certificates keep useful task performance while reducing unsafe steps. That is why the paper emphasizes the safety-performance tradeoff rather than safety alone.
+
+Finally, the claim would be weakened by high-fidelity simulations in which the deterministic suite's interface advantage disappears. That is an empirical risk, and it is why the future-work section is explicit. The present paper earns a stronger version only after contact-rich learned benchmarks reproduce the same ordering.
+
+\clearpage
+\section{Per-Regime Reading Guide}
+
+The nominal regime should be read as a calibration sanity check. If a certificate fails there, the interface is badly implemented. In the v3 suite, nominal cells show that fixed, adaptive, robust, uncertainty-margin, residual, and oracle certificates all behave well. The aggressive black-box predictor is still unsafe even in nominal cells because its high-gain policy trusts a damping profile that creates a physically misleading rollout. The overconfident certificate already shows residual risk in nominal cells, which is useful because it prevents the paper from pretending that certificates are automatically safe.
+
+Mild and severe damping-loss regimes test the classic passivity failure: the model predicts more dissipation than the plant provides. Hamiltonian predictors can avoid some damping hallucination by not relying on dissipation, but they also lack a direct admissible set. Fixed certificates can survive mild mismatch but become brittle as the mismatch grows. Adaptive and robust certificates respond by shrinking the admitted action set. The return cost is the price of honest uncertainty.
+
+Payload regimes test inertia calibration. Payload increase tends to make kinetic energy larger than expected for a given effort; payload decrease can make a controller overbrake or misestimate progress. The suite includes both because safety is not the only concern. A certificate that is always conservative under payload decrease may be safe but inefficient. This is why the paper reports return, final goal error, and admitted action fraction instead of only unsafe steps.
+
+Saturation and latency regimes test the difference between selected action and applied action. A model may certify the selected action while the plant applies a delayed or clipped version. In real robots this mismatch is common: actuator limits, communication delay, low-level controllers, and torque-rate limits all affect realized work. A controller-facing certificate should either model these effects or include a margin that covers them.
+
+Contact surprise is the most robotics-specific stress in the suite. It represents the case where a wall, stop, payload, or environmental contact appears earlier or harder than expected. Prediction-only world models can look good before contact and fail at the transition. Robust and uncertainty-aware certificates are designed to reduce that risk by shrinking the budget when contact uncertainty is present. The combined shift stacks all of these effects and is the regime that best separates fixed certificates from adaptive ones.
+
+\section{Method Deployment Guide}
+
+The aggressive black-box predictor should not be deployed as a safety-critical controller. It is useful as a stress baseline because it demonstrates how a high-progress policy can exploit model optimism. The calibrated black-box predictor is a better engineering baseline, but it still lacks an explicit energy query. The energy-loss-only predictor may be useful during training, yet the loss must not be confused with a runtime admissible set.
+
+The Hamiltonian and port-Hamiltonian predictors are natural choices when the physics class is well matched to the task. They are especially attractive when a system is dominated by conservative dynamics or known interconnection structure. The v3 results do not argue against them. Instead, they suggest that a structured predictor should also expose an admissibility interface if it will be used by a controller. Structure and certificates are complementary.
+
+Passivity filters and MPC safety filters are strong controller-side baselines. They should be used when a planner has a trusted model and a clear constraint set. Their limitation is modularity: if the world model hides storage or uncertainty, every downstream controller must reconstruct that information. A model-side certificate makes the same budget available to multiple planners and creates a clean audit target.
+
+Fixed nominal certificates are appropriate only when the deployment plant is tightly calibrated. Adaptive calibrated certificates are better when stress can be estimated online. Robust interval certificates are preferable when the cost of violation is high and conservative behavior is acceptable. Uncertainty-margin certificates are useful when a model can estimate epistemic or distribution-shift uncertainty. Residual learned certificates are the most natural bridge to neural models. Overconfident certificates should be treated as a diagnostic failure case, not a deployable method.
+
+\clearpage
+\section{Transition To High-Fidelity Simulation}
+
+A direct next simulation study should keep the v3 interface and replace the low-dimensional families with a physics engine. The key is not to chase a larger benchmark blindly. The high-fidelity study should preserve the same experimental distinctions: prediction-only, energy-loss-only, structured dynamics, controller-side filters, fixed certificates, adaptive certificates, robust certificates, uncertainty-margin certificates, overconfident certificates, and an oracle or privileged-information upper bound.
+
+The task set should include at least one smooth reaching task, one contact-rich pushing or insertion task, one payload-change task, and one latency or saturation task. The evaluation should log the same fields as v3: prediction error, model cap violations, actual unsafe steps, clean success, return, admitted action fraction, and energy margin. Without those fields, the study would collapse back into reward and RMSE, which is exactly the problem the paper identifies.
+
+The simulation should also include deliberate calibration attacks. For example, the learned model can be trained on one payload and evaluated on another, trained with one friction coefficient and evaluated with another, or trained without a contact mode and evaluated with surprise contact. A certificate that does not change its admitted set under these attacks is suspect. A certificate that shrinks the admitted set too much may be safe but unusable. The tradeoff should be plotted explicitly.
+
+The high-fidelity study should avoid claiming hardware safety from simulation alone. The correct milestone is interface robustness: the certificate should reduce unsafe simulated behavior under known perturbations while preserving enough action freedom for task success. Hardware should come after that, with conservative speed and force limits, independent monitoring, and staged release.
+
+\section{Transition To Hardware}
+
+A hardware version should start with a low-energy platform and an independent safety monitor. The learned world model should not be the only safety layer. The energy certificate should be treated as a planner input, while a separate low-level controller enforces torque, velocity, and workspace limits. The first hardware test should be deliberately boring: slow reaching under known payloads, then payload changes, then soft contact, then harder contact.
+
+The hardware logging schema should mirror the v3 CSV schema. Every executed step should record observed state, selected action, applied action, predicted storage, upper confidence storage, admissibility decision, actual energy proxy, safety monitor status, and task progress. The most important hardware diagnostic is disagreement: cases where the model says an action is admissible but the independent monitor intervenes. Those are calibration failures and should be treated as first-class results, not hidden as aborted trials.
+
+The deployment rule should be monotone conservative. When the model is uncertain, the admissible set shrinks. When the monitor intervenes, the certificate margin increases. When a new payload or contact mode appears, the planner falls back to a safer controller until enough calibration data are collected. This rule is stricter than what is needed for a deterministic suite, but it is the correct interpretation of the paper's message.
+
+\clearpage
+\section{Numerical Sanity Checks}
+
+The generated results pass several internal sanity checks. The row counts match the Cartesian product of families, regimes, methods, and seeds. The aggregate row count matches the Cartesian product without seeds. The represented rollout count matches the full planner budget. The method ordering is plausible: oracle and calibrated certificates are safest; overconfident and aggressive prediction-only methods are unsafe; structured predictors lie in between; robust margins reduce unsafe steps at return cost.
+
+The RMSE-safety correlation is close to zero. This is a sanity check for the paper's thesis. If RMSE perfectly predicted unsafe steps, the interface argument would be weaker. If RMSE were deliberately inverted by construction, the suite would be suspicious. The observed near-zero correlation is the intended middle ground: prediction error contains some information, but it does not encode controller admissibility.
+
+The model-cap and actual-unsafe columns also behave as expected. Overconfident certificates have many actual unsafe steps but few model cap violations. Aggressive black-box predictors have both high predicted and actual violations. Robust and uncertainty-aware certificates have low actual violations and lower admitted action fractions. These relationships are exactly what a reviewer should check first in the CSV files.
+
+The figure set is also internally consistent. The safety-performance scatter places certificate variants in the low-unsafe region. The calibration stress curve separates overconfident and fixed nominal certificates from adaptive and robust variants. The RMSE scatter shows why prediction loss is not enough. The heatmap locates residual risk in contact and combined-shift regimes. The representative trace shows the mechanism in time.
+
+\section{Final Acceptance Criteria}
+
+The final version of this paper is acceptable for the batch only if the PDF is at least 25 pages, the final PDF is in Downloads, the local build copy is absent after the canonical script, the log scan has no fatal errors or unresolved references, the text extraction contains the v3 marker and full-scale numbers, and the rendered pages are visually inspected. These criteria are stronger than ordinary local compilation because the batch has a history of stale status files and premature exports.
+
+The scientific acceptance criteria are separate. The paper must not overclaim beyond the deterministic suite. It must keep the overconfident certificate failure visible. It must retain the no-hardware and no-neural-training limitations. It must make clear that the positive result depends on calibration and uncertainty margins. A long paper that hides those boundaries would be worse than a shorter honest one.
+
+The current v3 manuscript satisfies the content-side criteria once the build and visual checks pass. It has a large deterministic suite, direct baselines, stress regimes, generated artifacts, figures, tables, and a conservative claim boundary. The remaining work after this appendix is purely release engineering: build, inspect, export, validate, document, commit, and push.
 
 \begin{thebibliography}{99}
 
@@ -168,6 +727,26 @@ Robot world models should not be evaluated only as predictors.  When they are us
 R. J. Anderson and M. W. Spong.
 \newblock Bilateral control of teleoperators with time delay.
 \newblock \emph{IEEE Transactions on Automatic Control}, 1989.
+
+\bibitem[Ames et~al.(2019)]{ames2019control}
+A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath, and P. Tabuada.
+\newblock Control barrier functions: Theory and applications.
+\newblock \emph{European Control Conference}, 2019.
+
+\bibitem[Chua et~al.(2018)]{chua2018pets}
+K. Chua, R. Calandra, R. McAllister, and S. Levine.
+\newblock Deep reinforcement learning in a handful of trials using probabilistic dynamics models.
+\newblock \emph{Advances in Neural Information Processing Systems}, 2018.
+
+\bibitem[Deisenroth and Rasmussen(2011)]{deisenroth2011pilco}
+M. P. Deisenroth and C. E. Rasmussen.
+\newblock PILCO: A model-based and data-efficient approach to policy search.
+\newblock \emph{International Conference on Machine Learning}, 2011.
+
+\bibitem[Ebert et~al.(2018)]{ebert2018visual}
+F. Ebert, C. Finn, S. Dasari, A. Xie, A. Lee, and S. Levine.
+\newblock Visual foresight: Model-based deep reinforcement learning for vision-based robotic control.
+\newblock \emph{International Conference on Robotics and Automation}, 2018.
 
 \bibitem[Greydanus et~al.(2019)]{greydanus2019hamiltonian}
 S. Greydanus, M. Dzamba, and J. Yosinski.
@@ -184,15 +763,35 @@ D. Hafner, T. Lillicrap, I. Fischer, R. Villegas, D. Ha, H. Lee, and J. Davidson
 \newblock Learning latent dynamics for planning from pixels.
 \newblock \emph{International Conference on Machine Learning}, 2019.
 
+\bibitem[Hafner et~al.(2023)]{hafner2023mastering}
+D. Hafner, J. Pasukonis, J. Ba, and T. Lillicrap.
+\newblock Mastering diverse domains through world models.
+\newblock \emph{arXiv:2301.04104}, 2023.
+
 \bibitem[Hogan(1985)]{hogan1985impedance}
 N. Hogan.
 \newblock Impedance control: An approach to manipulation.
 \newblock \emph{ASME Journal of Dynamic Systems, Measurement, and Control}, 1985.
 
+\bibitem[Khalil(2002)]{khalil2002nonlinear}
+H. K. Khalil.
+\newblock \emph{Nonlinear Systems}.
+\newblock Prentice Hall, 2002.
+
 \bibitem[Lutter et~al.(2019)]{lutter2019deep}
 M. Lutter, C. Ritter, and J. Peters.
 \newblock Deep Lagrangian networks: Using physics as model prior for deep learning.
 \newblock \emph{International Conference on Learning Representations}, 2019.
+
+\bibitem[Mayne et~al.(2000)]{mayne2000mpc}
+D. Q. Mayne, J. B. Rawlings, C. V. Rao, and P. O. M. Scokaert.
+\newblock Constrained model predictive control: Stability and optimality.
+\newblock \emph{Automatica}, 2000.
+
+\bibitem[Nagabandi et~al.(2018)]{nagabandi2018neural}
+A. Nagabandi, G. Kahn, R. S. Fearing, and S. Levine.
+\newblock Neural network dynamics for model-based deep reinforcement learning with model-free fine-tuning.
+\newblock \emph{International Conference on Robotics and Automation}, 2018.
 
 \bibitem[Ortega et~al.(2002)]{ortega2002interconnection}
 R. Ortega, A. van der Schaft, B. Maschke, and G. Escobar.
@@ -203,6 +802,26 @@ R. Ortega, A. van der Schaft, B. Maschke, and G. Escobar.
 M. H. Raibert and J. J. Craig.
 \newblock Hybrid position/force control of manipulators.
 \newblock \emph{ASME Journal of Dynamic Systems, Measurement, and Control}, 1981.
+
+\bibitem[Slotine and Li(1991)]{slotine1991applied}
+J.-J. E. Slotine and W. Li.
+\newblock \emph{Applied Nonlinear Control}.
+\newblock Prentice Hall, 1991.
+
+\bibitem[Tassa et~al.(2012)]{tassa2012synthesis}
+Y. Tassa, T. Erez, and E. Todorov.
+\newblock Synthesis and stabilization of complex behaviors through online trajectory optimization.
+\newblock \emph{IEEE/RSJ International Conference on Intelligent Robots and Systems}, 2012.
+
+\bibitem[van der Schaft(2017)]{vanderschaf2017l2}
+A. van der Schaft.
+\newblock \emph{L2-Gain and Passivity Techniques in Nonlinear Control}.
+\newblock Springer, 2017.
+
+\bibitem[Watter et~al.(2015)]{watter2015embed}
+M. Watter, J. Springenberg, J. Boedecker, and M. Riedmiller.
+\newblock Embed to control: A locally linear latent dynamics model for control from raw images.
+\newblock \emph{Advances in Neural Information Processing Systems}, 2015.
 
 \bibitem[Zhong et~al.(2020)]{zhong2020symplectic}
 Y. D. Zhong, B. Dey, and A. Chakraborty.

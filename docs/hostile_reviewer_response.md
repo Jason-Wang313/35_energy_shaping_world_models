@@ -1,18 +1,11 @@
 # Hostile Reviewer Response
 
-## Likely Rejection
+The strongest response is to keep the claim narrow and evidence-rich.
 
-This is passivity/energy shaping repackaged as a world-model interface, and the safety result depends on a hand-specified certificate that knows the plant damping.
+1. The paper does not claim to invent passivity or Hamiltonian dynamics. It claims that a learned world model used by a controller should expose the energy admissibility query at decision time.
+2. The v3 suite includes hostile baselines: Hamiltonian predictor, port-Hamiltonian predictor, passivity filter, MPC safety filter, fixed certificate, robust certificate, uncertainty-margin certificate, overconfident certificate, and oracle limit.
+3. Prediction error is tested directly and is not a reliable proxy for unsafe closed-loop behavior in the suite.
+4. The overconfident certificate is a negative control showing that certificates require conservative calibration.
+5. The deterministic suite is justified as an interface study; hardware and learned-neural validation are future work.
 
-## Honest Response
-
-We agree that passivity and energy shaping are the core prior art. The contribution is narrower: a learned world model used by a planner should expose energy admissibility as an interface, not merely optimize prediction loss or an auxiliary physics prior.
-
-The v2 stress quantifies the limitation. When true damping is reduced to 0.02 but the certificate model remains nominal, model cap violations stay at 0 while real unsafe steps rise to 125 and clean success falls to 0.23. The paper should claim calibrated energy-admissibility interfaces, not hardware safety.
-
-## Required Upgrade For Main-Track Submission
-
-- Learn or estimate conservative storage and damping bounds from data.
-- Add uncertainty-aware admissibility sets.
-- Test in a contact-rich or multi-body robot simulator.
-- Compare against passivity-based control, Hamiltonian neural models, and MPC safety filters.
+The reviewer should judge the paper as a controller-interface contribution, not as a hardware safety paper.

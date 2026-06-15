@@ -1,16 +1,12 @@
 # Novelty Decision
 
-Chosen direction: a robot world model whose latent prediction updates are constrained by an energy-shaping budget, so that the model can be used for control without silently inventing or absorbing energy.
+Chosen direction: energy certificates as a controller-facing world-model interface.
 
-Why this is stronger than the seed:
-- It changes the central mechanism from 'world model plus regularizer' to 'certificate-aware predictive dynamics.'
-- It targets the failure mode that matters most in embodied control: physically implausible rollouts that look good in open-loop but destabilize closed-loop execution.
-- It is a robotics contribution, not just a representation-learning tweak.
+The strongest novelty claim is architectural. The model does not merely predict a next state or receive an energy regularizer during training. It exposes a storage estimate and admissible action set that a planner can query at decision time.
 
-Rejected weaker variants:
-- Bigger model or more data.
-- Generic uncertainty estimation.
-- Standalone benchmark work.
-- RL framing.
+Boundary against prior work:
+- Passivity and energy shaping provide the control language, not the complete learned-model interface.
+- Hamiltonian and port-Hamiltonian neural models provide useful structure, but not necessarily an action-level admissibility contract.
+- MPC and safety filters can consume the certificate, but they do not replace the need for the world model to expose physical budget information.
 
-V2 boundary: proceed only as workshop-only / strong-revise. The damping-mismatch stress shows that the interface can be dangerously optimistic when dissipation is miscalibrated.
+V3 evidence supports this novelty boundary through direct hostile baselines and stress regimes.
