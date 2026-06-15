@@ -1,21 +1,18 @@
 # Child Status 35
 
-Status: v2 hardened by orchestrator
+Status: v3 final full-scale complete.
+
 Original child attempt: 2
 Original failure cause: child attempt 2 completed literature artifacts but exited before manuscript/PDF generation.
 
-Recovery end time: 2026-06-11 23:49:00 +01:00
-V2 hardening time: 2026-06-13 07:20:28 +01:00
-Recovery and hardening actions:
-- Retained literature artifacts from the child sweep.
-- Generated deterministic energy-certificate simulation, manuscript, final audit, and PDF.
-- Added v2 damping-mismatch stress in `scripts/energy_certificate_sim.py`.
-- Generated `docs/energy_damping_mismatch_stress.csv` and `docs/energy_damping_mismatch_stress_table.tex`.
-- Added `scripts/build_pdf.ps1` to copy only to `C:\Users\wangz\Downloads\35.pdf` and remove local `main.pdf`.
-- Removed stale Desktop-artifact language from the audit trail.
-
-PDF exists: True
-Downloads PDF: C:\Users\wangz\Downloads\35.pdf
-Desktop PDF: absent
-Local paper PDF: absent after v2 build
-GitHub URL: https://github.com/Jason-Wang313/35_energy_shaping_world_models
+Final hardening outcome:
+- Wrote a paper-specific full-scale execution plan before substantive v3 edits.
+- Added RAM-light full-scale deterministic suite.
+- Generated 161,280 seed rows, 1,680 aggregate rows, six LaTeX tables, and five vector figures.
+- Rewrote the manuscript as a 25-page v3 final full-scale paper.
+- Exported final PDF only after local page/log/text/visual gates passed.
+- Canonical Downloads PDF: `C:/Users/wangz/Downloads/35.pdf`
+- SHA256: `013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D`
+- Local `main.pdf`: absent after canonical build.
+- Desktop PDF: absent.
+- GitHub URL: `https://github.com/Jason-Wang313/35_energy_shaping_world_models`

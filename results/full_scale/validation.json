@@ -1,0 +1,32 @@
+{
+  "status": "complete",
+  "final_pdf": "C:/Users/wangz/Downloads/35.pdf",
+  "pages": 25,
+  "size_bytes": 377741,
+  "sha256": "013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D",
+  "local_main_pdf_absent": true,
+  "build_status": "complete",
+  "build_copied": true,
+  "build_removed_local_pdf": true,
+  "latex_log_clean": true,
+  "text_markers_verified": [
+    "v3 final full-scale",
+    "5,109,350,400",
+    "161,280",
+    "55.55",
+    "overconfident certificates"
+  ],
+  "visual_render_verified": true,
+  "experiment": {
+    "families": 10,
+    "regimes": 12,
+    "methods": 14,
+    "seeds": 96,
+    "horizon": 160,
+    "candidate_actions": 33,
+    "lookahead": 6,
+    "seed_rows": 161280,
+    "aggregate_rows": 1680,
+    "represented_candidate_rollouts": 5109350400
+  }
+}
