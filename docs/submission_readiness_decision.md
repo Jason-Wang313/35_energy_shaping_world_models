@@ -9,7 +9,7 @@ Decision: v3 final submission-hardened for the scoped interface claim.
 - The paper compares against direct hostile baselines rather than only a toy black-box model.
 - The negative boundary is explicit: overconfident certificates fail under mismatch.
 - The claim is scoped honestly to a controller-interface study.
-- Final PDF, build status, hash, text markers, and visual render are verified.
+- Final PDF, build status, hash, text markers, visual render, and VLA-style link-box rendering are verified.
 
 ## Remaining Limits
 

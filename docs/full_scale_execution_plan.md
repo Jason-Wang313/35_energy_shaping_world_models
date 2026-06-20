@@ -234,7 +234,7 @@ V3 execution completed the planned hardening pass.
 - Generated LaTeX tables: 6
 - Final local build: 25 pages
 - Final Downloads PDF: `C:/Users/wangz/Downloads/35.pdf`
-- Final SHA256: `013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D`
+- Final SHA256: `E4B9C4A3F3FAD4AA99B9549EF07A1F95CC3606419755C784171C7B58FA057B12`
 - Local `main.pdf`: absent after canonical build
 - Log scan: clean for fatal errors, unresolved references, citation-change warnings, and overfull boxes
-- Visual render: final Downloads PDF rendered and checked
+- Visual render: final Downloads PDF rendered and checked, including VLA-style one-point red internal link boxes on all affected pages and no cyan link boxes
