@@ -10,6 +10,7 @@
 - [x] LaTeX build log was scanned for fatal errors, unresolved references, citation-change warnings, and overfull boxes.
 - [x] Final Downloads PDF text contains the v3 marker and full-scale numbers.
 - [x] Final Downloads PDF was rendered to PNG contact sheets and visually checked.
+- [x] VLA-style link-box policy is configured in `main.tex`; final PDF has one-point red internal reference boxes and no cyan boxes.
 
 Known scope limits:
 - Deterministic analytic suite, not high-fidelity physics simulation.

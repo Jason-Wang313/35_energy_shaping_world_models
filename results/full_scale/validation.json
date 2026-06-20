@@ -3,7 +3,7 @@
   "final_pdf": "C:/Users/wangz/Downloads/35.pdf",
   "pages": 25,
   "size_bytes": 377741,
-  "sha256": "013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D",
+  "sha256": "E4B9C4A3F3FAD4AA99B9549EF07A1F95CC3606419755C784171C7B58FA057B12",
   "local_main_pdf_absent": true,
   "build_status": "complete",
   "build_copied": true,
@@ -17,6 +17,17 @@
     "overconfident certificates"
   ],
   "visual_render_verified": true,
+  "vla_link_box_visual_hardening": {
+    "verified": true,
+    "link_pages": [[3, 2], [5, 1], [6, 1], [7, 1], [8, 1], [12, 1], [15, 1]],
+    "colors": {
+      "red": 8,
+      "green": 0,
+      "cyan": 0
+    },
+    "border": [0, 0, 1],
+    "note": "The manuscript has internal reference links only; green cite/url boxes are configured by hyperref policy but no cite/url link annotations are present."
+  },
   "experiment": {
     "families": 10,
     "regimes": 12,

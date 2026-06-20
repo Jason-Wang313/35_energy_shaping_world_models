@@ -18,3 +18,10 @@ Added damping-mismatch stress, narrowed claims, and canonical build script.
 - Exported final PDF to `C:/Users/wangz/Downloads/35.pdf`.
 - Removed local `main.pdf` via canonical build.
 - Recorded final validation in `results/full_scale/validation.json`.
+
+## v4 Visual Hardening
+
+- Added the VLA role-model `hyperref` box policy to `main.tex`.
+- Rebuilt the canonical Downloads PDF.
+- Verified 25 pages, SHA256 `E4B9C4A3F3FAD4AA99B9549EF07A1F95CC3606419755C784171C7B58FA057B12`, and no local `main.pdf`.
+- Verified one-point red internal link boxes on pages 3, 5, 6, 7, 8, 12, and 15, with no cyan boxes. The manuscript has no cite/url link annotations, so green cite/url boxes are configured but not present.

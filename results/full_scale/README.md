@@ -17,5 +17,5 @@ Final PDF validation:
 - PDF: `C:/Users/wangz/Downloads/35.pdf`
 - Pages: 25
 - Size: 377,741 bytes
-- SHA256: `013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D`
-- Visual render checked: true
+- SHA256: `E4B9C4A3F3FAD4AA99B9549EF07A1F95CC3606419755C784171C7B58FA057B12`
+- Visual render checked: true, including VLA-style one-point red internal link boxes and no cyan boxes

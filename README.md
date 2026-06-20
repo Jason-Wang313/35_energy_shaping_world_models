@@ -7,10 +7,10 @@ Status: v3 final full-scale submission-hardened artifact.
 - Canonical PDF: `C:/Users/wangz/Downloads/35.pdf`
 - Pages: 25
 - Size: 377,741 bytes
-- SHA256: `013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D`
+- SHA256: `E4B9C4A3F3FAD4AA99B9549EF07A1F95CC3606419755C784171C7B58FA057B12`
 - Local `main.pdf`: absent after canonical build
 - Build status: complete
-- Visual render: checked from final Downloads PDF
+- Visual render: checked from final Downloads PDF, including VLA-style one-point red internal link boxes on pages 3, 5, 6, 7, 8, 12, and 15. The manuscript has no cite/url link annotations, so green cite/url boxes are configured but not artificially introduced.
 
 ## V3 Scale
 

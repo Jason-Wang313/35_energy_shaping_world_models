@@ -12,7 +12,8 @@ Final hardening outcome:
 - Rewrote the manuscript as a 25-page v3 final full-scale paper.
 - Exported final PDF only after local page/log/text/visual gates passed.
 - Canonical Downloads PDF: `C:/Users/wangz/Downloads/35.pdf`
-- SHA256: `013579C68D8D4C834207DAEF12F523DE6D630EA0C79FC6EF4E23E682AF28727D`
+- SHA256: `E4B9C4A3F3FAD4AA99B9549EF07A1F95CC3606419755C784171C7B58FA057B12`
+- Latest visual hardening: VLA-style one-point red internal link boxes verified on pages 3, 5, 6, 7, 8, 12, and 15; green cite/url border policy configured, with no cite/url annotations present in this manuscript.
 - Local `main.pdf`: absent after canonical build.
 - Desktop PDF: absent.
 - GitHub URL: `https://github.com/Jason-Wang313/35_energy_shaping_world_models`
